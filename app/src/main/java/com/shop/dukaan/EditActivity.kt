@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.DatePickerDialog
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
@@ -64,15 +65,40 @@ class EditActivity : AppCompatActivity() {
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 if (!matches.isNullOrEmpty()) {
-                    val spokenText = matches[0].trim()
                     activeSpeechTarget?.let { target ->
-                        if (target == etAmount) {
-                            val number = extractNumber(spokenText)
-                            target.setText(number)
-                        } else if (target == etNote && !target.text.isNullOrBlank()) {
-                            target.append(" $spokenText")
-                        } else {
-                            target.setText(spokenText)
+                        when (target) {
+                            etAmount -> {
+                                var num = ""
+                                for (cand in matches) {
+                                    val ext = extractNumber(cand)
+                                    if (ext.isNotEmpty()) {
+                                        num = ext
+                                        break
+                                    }
+                                }
+                                if (num.isEmpty()) num = extractNumber(matches[0])
+                                target.setText(num)
+                            }
+                            etProduct -> {
+                                target.setText(cleanProductText(matches[0]))
+                            }
+                            etName -> {
+                                target.setText(capitalizeWords(matches[0]))
+                            }
+                            etAddress -> {
+                                target.setText(capitalizeWords(matches[0]))
+                            }
+                            etNote -> {
+                                val text = matches[0].trim()
+                                if (!target.text.isNullOrBlank()) {
+                                    target.append(" $text")
+                                } else {
+                                    target.setText(text)
+                                }
+                            }
+                            else -> {
+                                target.setText(matches[0])
+                            }
                         }
                         target.setSelection(target.text?.length ?: 0)
                     }
@@ -122,6 +148,9 @@ class EditActivity : AppCompatActivity() {
         btnDeleteVoice = findViewById(R.id.btnDeleteVoice)
 
         val tvTitle: TextView = findViewById(R.id.tvTitle)
+        val tvVoiceLang: TextView = findViewById(R.id.tvVoiceLang)
+        tvVoiceLang.text = getSavedLanguageLabel() + " ▾"
+        tvVoiceLang.setOnClickListener { showLanguageDialog(tvVoiceLang) }
         val tilName: TextInputLayout = findViewById(R.id.tilName)
         val tilProduct: TextInputLayout = findViewById(R.id.tilProduct)
         val tilAmount: TextInputLayout = findViewById(R.id.tilAmount)
@@ -420,18 +449,101 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    private val PREFS_NAME = "dukaan_prefs"
+    private val KEY_VOICE_LANG = "voice_lang_code"
+    private val KEY_VOICE_LANG_LABEL = "voice_lang_label"
+
+    private fun getSavedLanguageCode(): String {
+        val sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return sp.getString(KEY_VOICE_LANG, "en-IN") ?: "en-IN"
+    }
+
+    private fun getSavedLanguageLabel(): String {
+        val sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return sp.getString(KEY_VOICE_LANG_LABEL, "English (India)") ?: "English (India)"
+    }
+
+    private fun saveLanguage(code: String, label: String) {
+        val sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        sp.edit().putString(KEY_VOICE_LANG, code).putString(KEY_VOICE_LANG_LABEL, label).apply()
+    }
+
+    private fun showLanguageDialog(tvTarget: TextView) {
+        val languages = arrayOf(
+            "English (India)",
+            "ગુજરાતી (Gujarati)",
+            "हिंदी (Hindi)",
+            "English (US)"
+        )
+        val codes = arrayOf("en-IN", "gu-IN", "hi-IN", "en-US")
+        val currentCode = getSavedLanguageCode()
+        val currentIndex = codes.indexOf(currentCode).let { if (it >= 0) it else 0 }
+
+        AlertDialog.Builder(this)
+            .setTitle("Voice Language")
+            .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
+                saveLanguage(codes[which], languages[which])
+                tvTarget.text = languages[which] + " ▾"
+                toast("Voice language set to " + languages[which])
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun startSpeechToText(target: TextInputEditText, prompt: String) {
         activeSpeechTarget = target
+        val langCode = getSavedLanguageCode()
+
+        // WEB_SEARCH model is tuned for proper nouns, Indian names, brands, and products
+        val model = if (target == etNote) {
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        } else {
+            RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH
+        }
+
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, model)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
-            putExtra("android.speech.extra.PREFER_OFFLINE", true)
         }
         try {
             speechRecognizerLauncher.launch(intent)
         } catch (e: ActivityNotFoundException) {
             toast("Speech recognition is not available")
+        }
+    }
+
+    private fun cleanProductText(raw: String): String {
+        val trimmed = raw.trim()
+        val lower = trimmed.lowercase(Locale.ENGLISH)
+
+        return when {
+            lower.contains("phrease") || lower.contains("phrase") || lower.contains("friedge") ||
+            lower.contains("frige") || lower.contains("freez") || lower.contains("freeze") ||
+            lower.contains("frize") || lower.contains("frij") || lower.contains("friz") -> "Fridge"
+
+            lower.contains("washing") || lower.contains("vashing") -> "Washing Machine"
+            lower.contains("geyser") || lower.contains("giser") || lower.contains("gizer") || lower.contains("geezer") -> "Geyser"
+            lower.contains("cooler") || lower.contains("kooler") -> "Cooler"
+            lower.contains("arrow") || lower.contains("ar o") || lower.contains("r o") || lower == "ro" -> "RO Filter"
+            lower.contains("fan") || lower.contains("pankha") -> "Fan"
+            lower.contains("ac") || lower.contains("a c") || lower.contains("air conditioner") -> "AC"
+            lower.contains("tv") || lower.contains("t v") || lower.contains("television") -> "TV"
+            lower.contains("microwave") || lower.contains("oven") -> "Microwave Oven"
+            lower.contains("inverter") || lower.contains("invertor") -> "Inverter"
+            lower.contains("motor") -> "Water Motor"
+            lower.contains("chimney") -> "Chimney"
+            else -> capitalizeWords(trimmed)
+        }
+    }
+
+    private fun capitalizeWords(text: String): String {
+        return text.split(" ").filter { it.isNotBlank() }.joinToString(" ") { word ->
+            word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }
 
