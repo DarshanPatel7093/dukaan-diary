@@ -8,14 +8,17 @@ Each entry can have a **voice note** (record, play, re-record, delete) so no typ
 Any entry or voice note can be deleted (with a confirmation).
 
 ## Features
-- Local SQLite database, no internet needed, no account, no server
-- Two tabs: Payments / Service visits, sorted by date (earliest first)
-- Colour status: OVERDUE (red), TODAY (orange), TOMORROW (blue), later (green)
-- Banner at top: how many payments/services are due today or overdue
-- CALL button opens the phone dialer with the customer's number
-- DONE button marks complete (hidden from the list; tick "Show completed" to see them; UNDO available)
-- Reminder notifications every day at 9:00 AM and 5:00 PM when something is due or overdue
-- Voice notes are stored privately inside the app (not in the gallery)
+- **Today's Dashboard**: Quick overview of today's pending payments, total money to collect (Rs.), and service visits scheduled for today/overdue, with one-tap filter chips (`All Today`, `Payments`, `Services`).
+- **Payments (Udhar)**: Track customer credit, product, amount, promised date, notes, and voice notes.
+- **Service Visits**: Track service visits (e.g. RO filter, AC repair), address, scheduled date, notes, and voice notes.
+- **Speech-to-Text (Voice Input)**: Tap the mic 🎤 icon in Customer Name, Product, Amount, Address, or Note to speak instead of typing. Mobile number remains manual typing for accuracy.
+- **Direct Audio Playback on Dashboard**: Listen to voice notes directly from the reminder card using the `▶ LISTEN` button without opening the entry.
+- **Voice Notes**: Stored privately inside the app's internal storage (not in public gallery/music players).
+- **100% Offline**: Local SQLite database, runs with no internet permission, no account, no server.
+- **Colour Status**: OVERDUE (red), TODAY (orange), TOMORROW (blue), later (green).
+- **CALL Button**: One-tap phone dialer with customer's number.
+- **DONE Button**: Mark complete with one tap (tick "Show completed" to see history; UNDO available).
+- **Daily Reminders**: Offline notifications at 9:00 AM and 5:00 PM when something is due.
 
 ## How to build the APK
 

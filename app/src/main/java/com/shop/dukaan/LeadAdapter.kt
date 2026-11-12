@@ -1,5 +1,6 @@
 package com.shop.dukaan
 
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
@@ -16,7 +17,8 @@ class LeadAdapter(
     private val onCall: (Lead) -> Unit,
     private val onDone: (Lead) -> Unit,
     private val onDelete: (Lead) -> Unit,
-    private val onOpen: (Lead) -> Unit
+    private val onOpen: (Lead) -> Unit,
+    private val onPlayVoice: (Lead) -> Unit
 ) : RecyclerView.Adapter<LeadAdapter.VH>() {
 
     private var items: List<Lead> = emptyList()
@@ -25,19 +27,28 @@ class LeadAdapter(
         maximumFractionDigits = 2
     }
 
+    var playingId: Long? = null
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+
     fun submit(list: List<Lead>) {
         items = list
         notifyDataSetChanged()
     }
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val typeBadge: TextView = v.findViewById(R.id.tvTypeBadge)
         val name: TextView = v.findViewById(R.id.tvName)
         val status: TextView = v.findViewById(R.id.tvStatus)
+        val amount: TextView = v.findViewById(R.id.tvAmount)
         val product: TextView = v.findViewById(R.id.tvProduct)
         val extra: TextView = v.findViewById(R.id.tvExtra)
         val date: TextView = v.findViewById(R.id.tvDate)
         val note: TextView = v.findViewById(R.id.tvNote)
-        val voice: TextView = v.findViewById(R.id.tvVoice)
+        val layoutVoice: View = v.findViewById(R.id.layoutVoice)
+        val btnPlayVoice: MaterialButton = v.findViewById(R.id.btnPlayVoice)
         val btnCall: MaterialButton = v.findViewById(R.id.btnCall)
         val btnDone: MaterialButton = v.findViewById(R.id.btnDone)
         val btnDelete: MaterialButton = v.findViewById(R.id.btnDelete)
@@ -52,39 +63,78 @@ class LeadAdapter(
         val l = items[position]
         val isPayment = l.type == TYPE_PAYMENT
 
+        // Type Badge
+        h.typeBadge.text = if (isPayment) "💰 PAYMENT" else "🔧 SERVICE"
+        h.typeBadge.setTextColor(Color.parseColor(if (isPayment) "#1565C0" else "#512DA8"))
+        h.typeBadge.setBackgroundResource(if (isPayment) R.drawable.bg_badge_payment else R.drawable.bg_badge_service)
+
+        // Name
         h.name.text = l.name
-        h.product.text = (if (isPayment) "Product: " else "Service for: ") + l.product
+
+        // Amount (Prominent for payments)
+        if (isPayment && l.amount > 0) {
+            h.amount.visibility = View.VISIBLE
+            h.amount.text = "₹ " + moneyFmt.format(l.amount) + " pending"
+        } else {
+            h.amount.visibility = View.GONE
+        }
+
+        // Product
+        h.product.text = (if (isPayment) "📦 Product: " else "🔧 Service for: ") + l.product
         h.product.visibility = if (l.product.isBlank()) View.GONE else View.VISIBLE
 
-        if (isPayment) {
-            h.extra.text = "Amount pending: Rs. " + moneyFmt.format(l.amount)
-            h.extra.visibility = if (l.amount > 0) View.VISIBLE else View.GONE
-            h.date.text = "Promised to pay on: " + dateFmt.format(Date(l.dateMillis))
+        // Address (For Services)
+        if (!isPayment && l.address.isNotBlank()) {
+            h.extra.text = "📍 Address: " + l.address
+            h.extra.visibility = View.VISIBLE
         } else {
-            h.extra.text = "Address: " + l.address
-            h.extra.visibility = if (l.address.isBlank()) View.GONE else View.VISIBLE
-            h.date.text = "Visit on: " + dateFmt.format(Date(l.dateMillis))
+            h.extra.visibility = View.GONE
         }
 
-        h.note.text = l.note
-        h.note.visibility = if (l.note.isBlank()) View.GONE else View.VISIBLE
-        h.voice.visibility = if (l.audioPath != null) View.VISIBLE else View.GONE
+        // Date
+        val datePrefix = if (isPayment) "📅 Promised to pay: " else "📅 Visit scheduled: "
+        h.date.text = datePrefix + dateFmt.format(Date(l.dateMillis))
 
-        // Status label and colour
+        // Note
+        if (l.note.isNotBlank()) {
+            h.note.text = "📝 " + l.note
+            h.note.visibility = View.VISIBLE
+        } else {
+            h.note.visibility = View.GONE
+        }
+
+        // Voice Note Player directly on the card
+        if (l.audioPath != null) {
+            h.layoutVoice.visibility = View.VISIBLE
+            val isPlaying = playingId == l.id
+            if (isPlaying) {
+                h.btnPlayVoice.text = "⏹ STOP"
+                h.btnPlayVoice.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#DC2626"))
+            } else {
+                h.btnPlayVoice.text = "▶ LISTEN"
+                h.btnPlayVoice.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#059669"))
+            }
+            h.btnPlayVoice.setOnClickListener { onPlayVoice(l) }
+        } else {
+            h.layoutVoice.visibility = View.GONE
+        }
+
+        // Status Badge with soft rounded pill styling
         val days = ((l.dateMillis - startOfDay()) / 86_400_000L).toInt()
-        val (label, color) = when {
-            l.done -> "DONE" to "#757575"
-            days < 0 -> "OVERDUE ${-days}d" to "#D32F2F"
-            days == 0 -> "TODAY" to "#EF6C00"
-            days == 1 -> "TOMORROW" to "#1565C0"
-            else -> "In $days days" to "#2E7D32"
+        val (label, textColor, bgRes) = when {
+            l.done -> Triple("DONE", "#64748B", R.drawable.bg_badge_done)
+            days < 0 -> Triple("OVERDUE ${-days}d", "#DC2626", R.drawable.bg_badge_overdue)
+            days == 0 -> Triple("TODAY", "#D97706", R.drawable.bg_badge_today)
+            days == 1 -> Triple("TOMORROW", "#2563EB", R.drawable.bg_badge_tomorrow)
+            else -> Triple("In $days days", "#16A34A", R.drawable.bg_badge_today)
         }
         h.status.text = label
-        h.status.setTextColor(Color.parseColor(color))
+        h.status.setTextColor(Color.parseColor(textColor))
+        h.status.setBackgroundResource(bgRes)
 
-        h.btnCall.visibility = if (l.phone.isBlank()) View.INVISIBLE else View.VISIBLE
-        h.btnCall.text = "CALL"
-        h.btnDone.text = if (l.done) "UNDO" else "DONE"
+        // Action Buttons
+        h.btnCall.visibility = if (l.phone.isBlank()) View.GONE else View.VISIBLE
+        h.btnDone.text = if (l.done) "UNDO" else "✓ DONE"
 
         h.btnCall.setOnClickListener { onCall(l) }
         h.btnDone.setOnClickListener { onDone(l) }

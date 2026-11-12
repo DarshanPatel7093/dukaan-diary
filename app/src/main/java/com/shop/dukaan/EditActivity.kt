@@ -1,12 +1,16 @@
 package com.shop.dukaan
 
 import android.Manifest
+import android.app.Activity
 import android.app.DatePickerDialog
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -50,6 +54,41 @@ class EditActivity : AppCompatActivity() {
 
     private val dateFmt = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.ENGLISH)
 
+    // Speech to text state
+    private var activeSpeechTarget: TextInputEditText? = null
+    private var pendingSpeechTarget: TextInputEditText? = null
+    private var pendingSpeechPrompt: String = ""
+
+    private val speechRecognizerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                if (!matches.isNullOrEmpty()) {
+                    val spokenText = matches[0].trim()
+                    activeSpeechTarget?.let { target ->
+                        if (target == etAmount) {
+                            val number = extractNumber(spokenText)
+                            target.setText(number)
+                        } else if (target == etNote && !target.text.isNullOrBlank()) {
+                            target.append(" $spokenText")
+                        } else {
+                            target.setText(spokenText)
+                        }
+                        target.setSelection(target.text?.length ?: 0)
+                    }
+                }
+            }
+        }
+
+    private val speechMicPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                pendingSpeechTarget?.let { startSpeechToText(it, pendingSpeechPrompt) }
+            } else {
+                toast("Microphone permission is needed for speech-to-text")
+            }
+        }
+
     private val micPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startRecording()
@@ -83,9 +122,11 @@ class EditActivity : AppCompatActivity() {
         btnDeleteVoice = findViewById(R.id.btnDeleteVoice)
 
         val tvTitle: TextView = findViewById(R.id.tvTitle)
+        val tilName: TextInputLayout = findViewById(R.id.tilName)
         val tilProduct: TextInputLayout = findViewById(R.id.tilProduct)
         val tilAmount: TextInputLayout = findViewById(R.id.tilAmount)
         val tilAddress: TextInputLayout = findViewById(R.id.tilAddress)
+        val tilNote: TextInputLayout = findViewById(R.id.tilNote)
         val tvDateLabel: TextView = findViewById(R.id.tvDateLabel)
         val btnDeleteEntry: MaterialButton = findViewById(R.id.btnDeleteEntry)
 
@@ -99,6 +140,23 @@ class EditActivity : AppCompatActivity() {
             tilProduct.hint = "Product (e.g. RO filter)"
             tvDateLabel.text = "Worker should visit on:"
             tilAmount.visibility = View.GONE
+        }
+
+        // Speech-to-text mic click listeners
+        tilName.setEndIconOnClickListener {
+            requestSpeech(etName, "Say customer name")
+        }
+        tilProduct.setEndIconOnClickListener {
+            requestSpeech(etProduct, if (isPayment) "Say product given on credit" else "Say product or appliance")
+        }
+        tilAmount.setEndIconOnClickListener {
+            requestSpeech(etAmount, "Say amount (e.g. 500)")
+        }
+        tilAddress.setEndIconOnClickListener {
+            requestSpeech(etAddress, "Say customer address")
+        }
+        tilNote.setEndIconOnClickListener {
+            requestSpeech(etNote, "Say note")
         }
 
         // Fill existing values
@@ -346,6 +404,45 @@ class EditActivity : AppCompatActivity() {
         if (!saved && audioPath != null && audioPath != originalAudio) {
             File(audioPath!!).delete()
         }
+    }
+
+    private fun requestSpeech(target: TextInputEditText, prompt: String) {
+        if (recorder != null) stopRecording()
+        stopPlayback()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            startSpeechToText(target, prompt)
+        } else {
+            pendingSpeechTarget = target
+            pendingSpeechPrompt = prompt
+            speechMicPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startSpeechToText(target: TextInputEditText, prompt: String) {
+        activeSpeechTarget = target
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
+            putExtra("android.speech.extra.PREFER_OFFLINE", true)
+        }
+        try {
+            speechRecognizerLauncher.launch(intent)
+        } catch (e: ActivityNotFoundException) {
+            toast("Speech recognition is not available")
+        }
+    }
+
+    private fun extractNumber(text: String): String {
+        val cleaned = text.replace(",", "")
+            .replace("₹", "")
+            .replace("Rs.", "", ignoreCase = true)
+            .replace("Rs", "", ignoreCase = true)
+            .trim()
+        val match = Regex("""\d+(\.\d+)?""").find(cleaned)
+        return match?.value ?: cleaned.filter { it.isDigit() || it == '.' }
     }
 
     private fun trimZero(d: Double): String =

@@ -1,50 +1,249 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <TextView
+    <!-- Top Header with App Name and Date -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/primary"
+        android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="12dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="14dp"
-        android:text="Dukaan Diary"
-        android:textColor="@android:color/white"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+        android:paddingBottom="12dp">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dukaan Diary"
+            android:textColor="@android:color/white"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvHeaderDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#E0E0E0"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Navigation Tabs: DASHBOARD, PAYMENTS, SERVICES -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabs"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@android:color/white"
+        app:tabIndicatorColor="@color/primary"
+        app:tabIndicatorHeight="4dp"
+        app:tabMode="fixed"
+        app:tabSelectedTextColor="@color/primary"
+        app:tabTextAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:tabTextColor="@color/grey" />
+
+    <!-- DASHBOARD VIEW (Cards + Filter Chips) -->
+    <LinearLayout
+        android:id="@+id/layoutDashboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="12dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
+
+        <!-- Two KPI Cards: Today's Payments & Today's Services -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <!-- Card 1: Payments -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTodayPayments"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="#F0F7FF"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeColor="#BBDEFB"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💰 PAYMENTS"
+                        android:textColor="#1565C0"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDashPaymentAmount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Rs. 0"
+                        android:textColor="#212121"
+                        android:textSize="19sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDashPaymentCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="0 pending"
+                        android:textColor="#616161"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card 2: Services -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTodayServices"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="#FFF8E1"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeColor="#FFE082"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🔧 SERVICE VISITS"
+                        android:textColor="#E65100"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDashServiceCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="0 visits"
+                        android:textColor="#212121"
+                        android:textSize="19sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDashServiceDetail"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Due today / overdue"
+                        android:textColor="#616161"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <!-- Filter Chips for Dashboard -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupDashboard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipFilterAll"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="All Today" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipFilterPayments"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Payments" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipFilterServices"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Service Visits" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <!-- Section Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📅 Today's Reminders"
+                android:textColor="#0F172A"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔊 Direct Audio Notes"
+                android:textColor="#059669"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Summary banner for individual tabs -->
     <TextView
         android:id="@+id/tvSummary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#FFF3E0"
-        android:padding="12dp"
+        android:padding="10dp"
         android:textColor="@color/orange"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tabs"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="@android:color/white"
-        app:tabIndicatorHeight="4dp"
-        app:tabMode="fixed"
-        app:tabTextAppearance="@style/TextAppearance.AppCompat.Medium"
-        xmlns:app="http://schemas.android.com/apk/res-auto" />
-
+    <!-- Checkbox to show completed entries -->
     <CheckBox
         android:id="@+id/cbShowDone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingStart="8dp"
         android:text="Show completed entries too"
-        android:textSize="15sp" />
+        android:textSize="14sp" />
 
+    <!-- List & Empty State -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -64,17 +263,17 @@
             android:gravity="center"
             android:padding="24dp"
             android:textColor="@color/grey"
-            android:textSize="18sp" />
+            android:textSize="16sp" />
     </FrameLayout>
 
+    <!-- Bottom Add Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAdd"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="60dp"
         android:layout_margin="12dp"
-        android:text="+  ADD NEW"
-        android:textSize="20sp"
+        android:text="+  ADD NEW REMINDER"
+        android:textSize="18sp"
         android:textStyle="bold"
-        app:cornerRadius="12dp"
-        xmlns:app="http://schemas.android.com/apk/res-auto" />
+        app:cornerRadius="12dp" />
 </LinearLayout>

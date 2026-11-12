@@ -4,129 +4,215 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginStart="12dp"
-    android:layout_marginTop="8dp"
+    android:layout_marginTop="6dp"
     android:layout_marginEnd="12dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="3dp">
+    android:layout_marginBottom="6dp"
+    app:cardBackgroundColor="@android:color/white"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    app:strokeColor="#E2E8F0"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="16dp">
 
+        <!-- Top Header: Badge, Name, Status -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvTypeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="3dp"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvName"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="#212121"
-                android:textSize="20sp"
+                android:textColor="#0F172A"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="15sp"
+                android:paddingStart="10dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="3dp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Amount (Highlight for Payments) -->
+        <TextView
+            android:id="@+id/tvAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#16A34A"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- Product Name -->
         <TextView
             android:id="@+id/tvProduct"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#424242"
-            android:textSize="16sp" />
+            android:textColor="#334155"
+            android:textSize="15sp" />
 
+        <!-- Address (For Service Visits) -->
         <TextView
             android:id="@+id/tvExtra"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="#424242"
-            android:textSize="16sp" />
+            android:textColor="#475569"
+            android:textSize="14sp" />
 
+        <!-- Date / Schedule -->
         <TextView
             android:id="@+id/tvDate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="#424242"
-            android:textSize="16sp" />
+            android:textColor="#64748B"
+            android:textSize="13sp" />
 
+        <!-- Text Note -->
         <TextView
             android:id="@+id/tvNote"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:maxLines="2"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
-            android:textColor="@color/grey"
-            android:textSize="14sp" />
+            android:maxLines="2"
+            android:textColor="#64748B"
+            android:textSize="13sp" />
 
-        <TextView
-            android:id="@+id/tvVoice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="🎤 Voice note saved (tap card to listen)"
-            android:textColor="@color/accent"
-            android:textSize="14sp" />
-
+        <!-- Direct Audio Player Row (Right here on the reminder card!) -->
         <LinearLayout
+            android:id="@+id/layoutVoice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:background="@drawable/bg_voice_note"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/ivAudioIcon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_volume_up" />
+
+            <TextView
+                android:id="@+id/tvVoiceLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="Voice note attached"
+                android:textColor="#065F46"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPlayVoice"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:backgroundTint="#059669"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="▶ LISTEN"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:cornerRadius="19dp" />
+        </LinearLayout>
+
+        <!-- Action Buttons: CALL, DONE, DELETE -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCall"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="52dp"
+                android:layout_height="48dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:padding="0dp"
-                android:text="CALL"
-                android:textSize="14sp" />
+                android:text="📞 CALL"
+                android:textColor="#2563EB"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:cornerRadius="10dp"
+                app:strokeColor="#BFDBFE" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDone"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="52dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:padding="0dp"
-                android:text="DONE"
-                android:textColor="@color/green"
-                android:textSize="14sp" />
+                android:text="✓ DONE"
+                android:textColor="#16A34A"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:cornerRadius="10dp"
+                app:strokeColor="#BBF7D0" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDelete"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="52dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="4dp"
                 android:layout_weight="1"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:text="DELETE"
-                android:textColor="@color/red"
-                android:textSize="14sp" />
+                android:textColor="#DC2626"
+                android:textSize="13sp"
+                app:cornerRadius="10dp"
+                app:strokeColor="#FECACA" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -11,6 +11,16 @@ import java.util.Calendar
 const val TYPE_PAYMENT = "PAYMENT"
 const val TYPE_SERVICE = "SERVICE"
 
+data class DashboardStats(
+    val todayPaymentCount: Int = 0,
+    val overduePaymentCount: Int = 0,
+    val totalDuePaymentCount: Int = 0,
+    val totalDuePaymentAmount: Double = 0.0,
+    val todayServiceCount: Int = 0,
+    val overdueServiceCount: Int = 0,
+    val totalDueServiceCount: Int = 0
+)
+
 data class Lead(
     var id: Long = 0,
     var type: String = TYPE_PAYMENT,
@@ -141,5 +151,96 @@ class Db(context: Context) :
             "SELECT COUNT(*) FROM leads WHERE type=? AND done=0 AND date_millis < ?",
             arrayOf(type, endOfToday.toString())
         ).use { c -> return if (c.moveToFirst()) c.getInt(0) else 0 }
+    }
+
+    /** Summary statistics for today's dashboard (today + overdue). */
+    fun getDashboardStats(): DashboardStats {
+        val startToday = startOfDay()
+        val endToday = addDays(startToday, 1)
+
+        var todayPay = 0
+        var overduePay = 0
+        var totalPayAmount = 0.0
+        var todaySvc = 0
+        var overdueSvc = 0
+
+        // Payments due today or overdue
+        readableDatabase.rawQuery(
+            """SELECT 
+                SUM(CASE WHEN date_millis >= ? AND date_millis < ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN date_millis < ? THEN 1 ELSE 0 END),
+                SUM(amount)
+               FROM leads 
+               WHERE type = ? AND done = 0 AND date_millis < ?""",
+            arrayOf(
+                startToday.toString(),
+                endToday.toString(),
+                startToday.toString(),
+                TYPE_PAYMENT,
+                endToday.toString()
+            )
+        ).use { c ->
+            if (c.moveToFirst()) {
+                todayPay = if (!c.isNull(0)) c.getInt(0) else 0
+                overduePay = if (!c.isNull(1)) c.getInt(1) else 0
+                totalPayAmount = if (!c.isNull(2)) c.getDouble(2) else 0.0
+            }
+        }
+
+        // Services due today or overdue
+        readableDatabase.rawQuery(
+            """SELECT 
+                SUM(CASE WHEN date_millis >= ? AND date_millis < ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN date_millis < ? THEN 1 ELSE 0 END)
+               FROM leads 
+               WHERE type = ? AND done = 0 AND date_millis < ?""",
+            arrayOf(
+                startToday.toString(),
+                endToday.toString(),
+                startToday.toString(),
+                TYPE_SERVICE,
+                endToday.toString()
+            )
+        ).use { c ->
+            if (c.moveToFirst()) {
+                todaySvc = if (!c.isNull(0)) c.getInt(0) else 0
+                overdueSvc = if (!c.isNull(1)) c.getInt(1) else 0
+            }
+        }
+
+        return DashboardStats(
+            todayPaymentCount = todayPay,
+            overduePaymentCount = overduePay,
+            totalDuePaymentCount = todayPay + overduePay,
+            totalDuePaymentAmount = totalPayAmount,
+            todayServiceCount = todaySvc,
+            overdueServiceCount = overdueSvc,
+            totalDueServiceCount = todaySvc + overdueSvc
+        )
+    }
+
+    /** Returns leads due today or overdue for the Dashboard. */
+    fun listDashboard(typeFilter: String? = null, showDone: Boolean = false): List<Lead> {
+        val endToday = addDays(startOfDay(), 1)
+        val where = StringBuilder()
+        val args = ArrayList<String>()
+
+        if (!showDone) {
+            where.append("done = 0 AND ")
+        }
+        where.append("date_millis < ?")
+        args.add(endToday.toString())
+
+        if (typeFilter != null) {
+            where.append(" AND type = ?")
+            args.add(typeFilter)
+        }
+
+        val out = ArrayList<Lead>()
+        readableDatabase.query(
+            "leads", null, where.toString(), args.toTypedArray(), null, null,
+            "done ASC, date_millis ASC"
+        ).use { c -> while (c.moveToNext()) out.add(read(c)) }
+        return out
     }
 }

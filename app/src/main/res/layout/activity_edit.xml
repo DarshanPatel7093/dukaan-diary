@@ -20,6 +20,18 @@
             android:textSize="22sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#E3F2FD"
+            android:paddingStart="16dp"
+            android:paddingTop="9dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="9dp"
+            android:text="🎙️ Tap the mic 🎤 icon in any field to speak instead of typing"
+            android:textColor="@color/primary"
+            android:textSize="13sp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -31,7 +43,11 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Customer name">
+                android:hint="Customer name"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_mic"
+                app:endIconContentDescription="Speak customer name"
+                app:endIconTint="@color/primary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etName"
@@ -47,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:hint="Phone number">
+                android:hint="Phone number (type)">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etPhone"
@@ -62,7 +78,11 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp">
+                android:layout_marginTop="10dp"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_mic"
+                app:endIconContentDescription="Speak product name"
+                app:endIconTint="@color/primary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etProduct"
@@ -78,7 +98,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:hint="Amount pending (Rs.)">
+                android:hint="Amount pending (Rs.)"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_mic"
+                app:endIconContentDescription="Speak amount"
+                app:endIconTint="@color/primary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etAmount"
@@ -94,7 +118,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:hint="Customer address / area">
+                android:hint="Customer address / area"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_mic"
+                app:endIconContentDescription="Speak address"
+                app:endIconTint="@color/primary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etAddress"
@@ -175,7 +203,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:hint="Note (optional)">
+                android:hint="Note (optional)"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_mic"
+                app:endIconContentDescription="Speak note"
+                app:endIconTint="@color/primary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNote"
