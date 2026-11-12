@@ -1,0 +1,355 @@
+package com.shop.dukaan
+
+import android.Manifest
+import android.app.DatePickerDialog
+import android.content.pm.PackageManager
+import android.media.MediaPlayer
+import android.media.MediaRecorder
+import android.os.Build
+import android.os.Bundle
+import android.view.View
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+class EditActivity : AppCompatActivity() {
+
+    private lateinit var db: Db
+    private var lead = Lead()
+    private var dateMillis = startOfDay()
+
+    // Voice note state
+    private var originalAudio: String? = null   // what is saved in the database
+    private var audioPath: String? = null       // what is currently attached
+    private var recorder: MediaRecorder? = null
+    private var player: MediaPlayer? = null
+    private var saved = false
+
+    private lateinit var etName: TextInputEditText
+    private lateinit var etPhone: TextInputEditText
+    private lateinit var etProduct: TextInputEditText
+    private lateinit var etAmount: TextInputEditText
+    private lateinit var etAddress: TextInputEditText
+    private lateinit var etNote: TextInputEditText
+    private lateinit var tvDate: TextView
+    private lateinit var tvVoiceStatus: TextView
+    private lateinit var btnRecord: MaterialButton
+    private lateinit var btnPlay: MaterialButton
+    private lateinit var btnDeleteVoice: MaterialButton
+
+    private val dateFmt = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.ENGLISH)
+
+    private val micPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) startRecording()
+            else toast("Microphone permission is needed to record a voice note")
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_edit)
+        db = Db(this)
+
+        val id = intent.getLongExtra("id", 0L)
+        if (id != 0L) {
+            lead = db.get(id) ?: Lead()
+        }
+        if (lead.id == 0L) {
+            lead.type = intent.getStringExtra("type") ?: TYPE_PAYMENT
+        }
+        val isPayment = lead.type == TYPE_PAYMENT
+
+        etName = findViewById(R.id.etName)
+        etPhone = findViewById(R.id.etPhone)
+        etProduct = findViewById(R.id.etProduct)
+        etAmount = findViewById(R.id.etAmount)
+        etAddress = findViewById(R.id.etAddress)
+        etNote = findViewById(R.id.etNote)
+        tvDate = findViewById(R.id.tvDate)
+        tvVoiceStatus = findViewById(R.id.tvVoiceStatus)
+        btnRecord = findViewById(R.id.btnRecord)
+        btnPlay = findViewById(R.id.btnPlay)
+        btnDeleteVoice = findViewById(R.id.btnDeleteVoice)
+
+        val tvTitle: TextView = findViewById(R.id.tvTitle)
+        val tilProduct: TextInputLayout = findViewById(R.id.tilProduct)
+        val tilAmount: TextInputLayout = findViewById(R.id.tilAmount)
+        val tilAddress: TextInputLayout = findViewById(R.id.tilAddress)
+        val tvDateLabel: TextView = findViewById(R.id.tvDateLabel)
+        val btnDeleteEntry: MaterialButton = findViewById(R.id.btnDeleteEntry)
+
+        if (isPayment) {
+            tvTitle.text = if (lead.id == 0L) "New Payment (Udhar)" else "Edit Payment"
+            tilProduct.hint = "Product given on credit"
+            tvDateLabel.text = "Customer will pay on:"
+            tilAddress.visibility = View.GONE
+        } else {
+            tvTitle.text = if (lead.id == 0L) "New Service Visit" else "Edit Service Visit"
+            tilProduct.hint = "Product (e.g. RO filter)"
+            tvDateLabel.text = "Worker should visit on:"
+            tilAmount.visibility = View.GONE
+        }
+
+        // Fill existing values
+        if (lead.id != 0L) {
+            etName.setText(lead.name)
+            etPhone.setText(lead.phone)
+            etProduct.setText(lead.product)
+            if (lead.amount > 0) etAmount.setText(trimZero(lead.amount))
+            etAddress.setText(lead.address)
+            etNote.setText(lead.note)
+            dateMillis = lead.dateMillis
+        } else {
+            dateMillis = if (isPayment) startOfDay() else addDays(startOfDay(), 1)
+        }
+        originalAudio = lead.audioPath
+        audioPath = lead.audioPath
+        updateDate()
+        updateVoiceUi()
+
+        findViewById<MaterialButton>(R.id.btnToday).setOnClickListener {
+            dateMillis = startOfDay(); updateDate()
+        }
+        findViewById<MaterialButton>(R.id.btnTomorrow).setOnClickListener {
+            dateMillis = addDays(startOfDay(), 1); updateDate()
+        }
+        findViewById<MaterialButton>(R.id.btnPick).setOnClickListener { pickDate() }
+
+        btnRecord.setOnClickListener {
+            if (recorder != null) {
+                stopRecording()
+            } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                startRecording()
+            } else {
+                micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+        btnPlay.setOnClickListener { togglePlay() }
+        btnDeleteVoice.setOnClickListener { confirmDeleteVoice() }
+        findViewById<MaterialButton>(R.id.btnSave).setOnClickListener { save() }
+
+        if (lead.id == 0L) {
+            btnDeleteEntry.visibility = View.GONE
+        } else {
+            btnDeleteEntry.setOnClickListener { confirmDeleteEntry() }
+        }
+    }
+
+    // ---------- Date ----------
+
+    private fun updateDate() {
+        tvDate.text = dateFmt.format(Date(dateMillis))
+    }
+
+    private fun pickDate() {
+        val c = Calendar.getInstance().apply { timeInMillis = dateMillis }
+        DatePickerDialog(
+            this,
+            { _, y, m, d ->
+                val picked = Calendar.getInstance()
+                picked.set(y, m, d, 0, 0, 0)
+                dateMillis = startOfDay(picked.timeInMillis)
+                updateDate()
+            },
+            c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    // ---------- Voice note ----------
+
+    private fun updateVoiceUi() {
+        val recording = recorder != null
+        val playing = player != null
+        btnRecord.text = if (recording) "⏹  STOP RECORDING"
+        else if (audioPath != null) "🎤  RECORD AGAIN" else "🎤  START RECORDING"
+        btnRecord.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (recording) R.color.red else R.color.accent)
+        )
+        btnPlay.text = if (playing) "⏹  STOP" else "▶  PLAY"
+        btnPlay.isEnabled = audioPath != null && !recording
+        btnDeleteVoice.isEnabled = audioPath != null && !recording
+        tvVoiceStatus.text = when {
+            recording -> "Recording... speak now, then press STOP"
+            audioPath != null -> "Voice note is saved"
+            else -> "No voice note"
+        }
+    }
+
+    private fun startRecording() {
+        stopPlayback()
+        // Throw away an unsaved earlier take; keep the saved one until Save is pressed.
+        if (audioPath != null && audioPath != originalAudio) File(audioPath!!).delete()
+        audioPath = originalAudio
+
+        val dir = File(filesDir, "voice").apply { mkdirs() }
+        val file = File(dir, "note_${System.currentTimeMillis()}.m4a")
+        @Suppress("DEPRECATION")
+        val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(this) else MediaRecorder()
+        try {
+            r.setAudioSource(MediaRecorder.AudioSource.MIC)
+            r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            r.setAudioEncodingBitRate(64_000)
+            r.setAudioSamplingRate(44_100)
+            r.setOutputFile(file.absolutePath)
+            r.prepare()
+            r.start()
+            recorder = r
+            audioPath = file.absolutePath
+        } catch (e: Exception) {
+            r.release()
+            file.delete()
+            toast("Could not start recording")
+        }
+        updateVoiceUi()
+    }
+
+    private fun stopRecording() {
+        val r = recorder ?: return
+        recorder = null
+        try {
+            r.stop()
+        } catch (e: RuntimeException) {
+            // Recording was too short to be valid
+            audioPath?.let { if (it != originalAudio) File(it).delete() }
+            audioPath = originalAudio
+            toast("Recording too short, try again")
+        } finally {
+            r.release()
+        }
+        updateVoiceUi()
+    }
+
+    private fun togglePlay() {
+        if (player != null) {
+            stopPlayback()
+            updateVoiceUi()
+            return
+        }
+        val path = audioPath ?: return
+        try {
+            player = MediaPlayer().apply {
+                setDataSource(path)
+                prepare()
+                setOnCompletionListener {
+                    stopPlayback()
+                    updateVoiceUi()
+                }
+                start()
+            }
+        } catch (e: Exception) {
+            player?.release()
+            player = null
+            toast("Could not play this recording")
+        }
+        updateVoiceUi()
+    }
+
+    private fun stopPlayback() {
+        player?.let {
+            try {
+                it.stop()
+            } catch (_: Exception) {
+            }
+            it.release()
+        }
+        player = null
+    }
+
+    private fun confirmDeleteVoice() {
+        AlertDialog.Builder(this)
+            .setTitle("Delete this voice note?")
+            .setPositiveButton("YES, DELETE") { _, _ ->
+                stopPlayback()
+                audioPath?.let { File(it).delete() }
+                if (audioPath == originalAudio) {
+                    originalAudio = null
+                    if (lead.id != 0L) db.setAudio(lead.id, null)
+                }
+                audioPath = null
+                updateVoiceUi()
+                toast("Voice note deleted")
+            }
+            .setNegativeButton("NO", null)
+            .show()
+    }
+
+    // ---------- Save / delete ----------
+
+    private fun save() {
+        if (recorder != null) stopRecording()
+        val name = etName.text.toString().trim()
+        if (name.isEmpty()) {
+            etName.error = "Please enter customer name"
+            etName.requestFocus()
+            return
+        }
+        lead.name = name
+        lead.phone = etPhone.text.toString().trim()
+        lead.product = etProduct.text.toString().trim()
+        lead.amount = etAmount.text.toString().trim().toDoubleOrNull() ?: 0.0
+        lead.address = etAddress.text.toString().trim()
+        lead.note = etNote.text.toString().trim()
+        lead.dateMillis = dateMillis
+
+        // Replaced recording: remove the old file
+        if (originalAudio != null && originalAudio != audioPath) File(originalAudio!!).delete()
+        lead.audioPath = audioPath
+
+        db.save(lead)
+        saved = true
+        toast("Saved")
+        finish()
+    }
+
+    private fun confirmDeleteEntry() {
+        AlertDialog.Builder(this)
+            .setTitle("Delete this entry?")
+            .setMessage("This cannot be undone.")
+            .setPositiveButton("YES, DELETE") { _, _ ->
+                stopPlayback()
+                // Remove any unsaved new take too
+                if (audioPath != null && audioPath != originalAudio) File(audioPath!!).delete()
+                db.deleteWithAudio(lead)
+                saved = true
+                finish()
+            }
+            .setNegativeButton("NO", null)
+            .show()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (recorder != null) stopRecording()
+        stopPlayback()
+        updateVoiceUi()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (recorder != null) stopRecording()
+        stopPlayback()
+        // Left without saving: discard a new, unsaved recording
+        if (!saved && audioPath != null && audioPath != originalAudio) {
+            File(audioPath!!).delete()
+        }
+    }
+
+    private fun trimZero(d: Double): String =
+        if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+}
