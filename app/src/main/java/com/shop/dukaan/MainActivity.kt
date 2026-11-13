@@ -1,6 +1,9 @@
 package com.shop.dukaan
 
 import android.Manifest
+import android.app.Activity
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -8,6 +11,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.CheckBox
 import android.widget.LinearLayout
@@ -24,6 +28,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.tabs.TabLayout
+import java.io.File
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -54,9 +59,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cbShowDone: CheckBox
     private lateinit var tabs: TabLayout
     private lateinit var btnAdd: MaterialButton
+    private lateinit var btnBackupSecurity: MaterialButton
+
+    // Google Drive Quick Backup & Restore Views
+    private lateinit var cardDriveBackup: MaterialCardView
+    private lateinit var tvLastBackupStatus: TextView
+    private lateinit var btnQuickDriveBackup: MaterialButton
+    private lateinit var cardRestorePrompt: MaterialCardView
+    private lateinit var btnQuickRestoreDrive: MaterialButton
+
+    // Lock Overlay UI
+    private lateinit var layoutLockOverlay: View
+    private lateinit var btnUnlockApp: MaterialButton
 
     private var currentTabPosition = 0
     private var player: MediaPlayer? = null
+
+    // Security & Backup state
+    private val PREFS_SECURITY = "dukaan_security"
+    private val KEY_APP_LOCK_ENABLED = "app_lock_enabled"
+    private val KEY_LAST_BACKUP_TIME = "last_backup_time"
+    private var isUnlockedForSession = false
+    private var tempBackupFileForExport: File? = null
 
     private val moneyFmt = NumberFormat.getInstance(Locale("en", "IN")).apply {
         maximumFractionDigits = 2
@@ -64,6 +88,64 @@ class MainActivity : AppCompatActivity() {
 
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val createDocumentLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data?.data != null) {
+                val targetUri = result.data!!.data!!
+                tempBackupFileForExport?.let { file ->
+                    val success = BackupManager.writeBackupToUri(this, file, targetUri)
+                    if (success) {
+                        val timeStr = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date())
+                        getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+                            .edit()
+                            .putString(KEY_LAST_BACKUP_TIME, timeStr)
+                            .apply()
+                        updateLastBackupDisplay()
+                        Toast.makeText(this, "✅ Backup saved safely to Google Drive / Phone!", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "Failed to write backup", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+    private val openDocumentLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data?.data != null) {
+                val sourceUri = result.data!!.data!!
+                stopPlayback()
+                val success = BackupManager.restoreBackup(this, sourceUri)
+                if (success) {
+                    db = Db(this)
+                    refresh()
+                    Toast.makeText(this, "✅ All records & voice notes restored successfully!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Could not restore backup. Please select a valid Dukaan Diary backup file.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+    private val appUnlockLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                isUnlockedForSession = true
+                layoutLockOverlay.visibility = View.GONE
+            } else {
+                isUnlockedForSession = false
+                layoutLockOverlay.visibility = View.VISIBLE
+            }
+        }
+
+    private val toggleLockAuthLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val newState = !isAppLockEnabled()
+                setAppLockEnabled(newState)
+                isUnlockedForSession = true
+                Toast.makeText(this, if (newState) "🔒 App Lock enabled" else "🔓 App Lock disabled", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,12 +166,27 @@ class MainActivity : AppCompatActivity() {
         chipFilterAll = findViewById(R.id.chipFilterAll)
         chipFilterPayments = findViewById(R.id.chipFilterPayments)
         chipFilterServices = findViewById(R.id.chipFilterServices)
+        btnBackupSecurity = findViewById(R.id.btnBackupSecurity)
+
+        cardDriveBackup = findViewById(R.id.cardDriveBackup)
+        tvLastBackupStatus = findViewById(R.id.tvLastBackupStatus)
+        btnQuickDriveBackup = findViewById(R.id.btnQuickDriveBackup)
+        cardRestorePrompt = findViewById(R.id.cardRestorePrompt)
+        btnQuickRestoreDrive = findViewById(R.id.btnQuickRestoreDrive)
+
+        cardDriveBackup.setOnClickListener { startBackupExport() }
+        btnQuickDriveBackup.setOnClickListener { startBackupExport() }
+        btnQuickRestoreDrive.setOnClickListener { confirmRestore() }
+        updateLastBackupDisplay()
 
         tvSummary = findViewById(R.id.tvSummary)
         tvEmpty = findViewById(R.id.tvEmpty)
         cbShowDone = findViewById(R.id.cbShowDone)
         val recycler: RecyclerView = findViewById(R.id.recycler)
         btnAdd = findViewById(R.id.btnAdd)
+
+        layoutLockOverlay = findViewById(R.id.layoutLockOverlay)
+        btnUnlockApp = findViewById(R.id.btnUnlockApp)
 
         // Today's header date
         val dateHeaderFmt = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault())
@@ -164,6 +261,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        btnBackupSecurity.setOnClickListener {
+            showBackupSecurityDialog()
+        }
+
+        btnUnlockApp.setOnClickListener {
+            requestAppUnlock()
+        }
+
         // Daily reminders (9 AM and 5 PM) - work offline
         Reminder.schedule(this)
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -176,9 +281,175 @@ class MainActivity : AppCompatActivity() {
         updateTabVisibility()
     }
 
+    override fun onStart() {
+        super.onStart()
+        checkAppLock()
+    }
+
     override fun onResume() {
         super.onResume()
         refresh()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopPlayback()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stopPlayback()
+        if (isAppLockEnabled()) {
+            isUnlockedForSession = false
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopPlayback()
+    }
+
+    private fun checkAppLock() {
+        if (isAppLockEnabled()) {
+            if (!isUnlockedForSession) {
+                layoutLockOverlay.visibility = View.VISIBLE
+                requestAppUnlock()
+            } else {
+                layoutLockOverlay.visibility = View.GONE
+            }
+        } else {
+            layoutLockOverlay.visibility = View.GONE
+        }
+    }
+
+    private fun requestAppUnlock() {
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (km.isKeyguardSecure) {
+            val intent = km.createConfirmDeviceCredentialIntent(
+                "Dukaan Diary is Locked",
+                "Authenticate with Fingerprint, Face, or PIN to continue"
+            )
+            if (intent != null) {
+                appUnlockLauncher.launch(intent)
+            } else {
+                isUnlockedForSession = true
+                layoutLockOverlay.visibility = View.GONE
+            }
+        } else {
+            isUnlockedForSession = true
+            layoutLockOverlay.visibility = View.GONE
+        }
+    }
+
+    private fun isAppLockEnabled(): Boolean {
+        val sp = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+        return sp.getBoolean(KEY_APP_LOCK_ENABLED, false)
+    }
+
+    private fun setAppLockEnabled(enabled: Boolean) {
+        val sp = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_APP_LOCK_ENABLED, enabled).apply()
+    }
+
+    private fun showBackupSecurityDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_backup_security, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        val btnBackupSaveDrive: MaterialButton = dialogView.findViewById(R.id.btnBackupSaveDrive)
+        val btnBackupShare: MaterialButton = dialogView.findViewById(R.id.btnBackupShare)
+        val btnBackupRestore: MaterialButton = dialogView.findViewById(R.id.btnBackupRestore)
+        val cbAppLock: CheckBox = dialogView.findViewById(R.id.cbAppLock)
+        val tvLockStatusHint: TextView = dialogView.findViewById(R.id.tvLockStatusHint)
+        val btnCloseDialog: MaterialButton = dialogView.findViewById(R.id.btnCloseDialog)
+
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        cbAppLock.isChecked = isAppLockEnabled()
+
+        if (!km.isKeyguardSecure) {
+            tvLockStatusHint.text = "⚠️ No screen lock set on phone. Set a PIN/Fingerprint in Android Settings first."
+            cbAppLock.isEnabled = false
+        } else {
+            tvLockStatusHint.text = if (isAppLockEnabled()) "App is protected with phone's Fingerprint / PIN" else "Requires Fingerprint / PIN to open Dukaan Diary"
+        }
+
+        btnBackupSaveDrive.setOnClickListener {
+            dialog.dismiss()
+            startBackupExport()
+        }
+
+        btnBackupShare.setOnClickListener {
+            dialog.dismiss()
+            startBackupShare()
+        }
+
+        btnBackupRestore.setOnClickListener {
+            dialog.dismiss()
+            confirmRestore()
+        }
+
+        cbAppLock.setOnClickListener {
+            val targetState = cbAppLock.isChecked
+            cbAppLock.isChecked = !targetState // Revert visually until confirmed
+            if (!km.isKeyguardSecure) {
+                Toast.makeText(this, "Please set a PIN or Fingerprint on your phone first", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            val intent = km.createConfirmDeviceCredentialIntent(
+                "Confirm Identity",
+                if (targetState) "Confirm to enable App Lock" else "Confirm to disable App Lock"
+            )
+            if (intent != null) {
+                toggleLockAuthLauncher.launch(intent)
+            } else {
+                setAppLockEnabled(targetState)
+                cbAppLock.isChecked = targetState
+            }
+        }
+
+        btnCloseDialog.setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    private fun startBackupExport() {
+        try {
+            val file = BackupManager.createBackupArchive(this)
+            tempBackupFileForExport = file
+            val timeStamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_TITLE, "DukaanDiary_Backup_$timeStamp.dukaan")
+            }
+            createDocumentLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not create backup: " + e.message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startBackupShare() {
+        try {
+            val file = BackupManager.createBackupArchive(this)
+            BackupManager.shareBackupFile(this, file)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not create backup: " + e.message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun confirmRestore() {
+        AlertDialog.Builder(this)
+            .setTitle("Restore Data from Backup?")
+            .setMessage("⚠️ Restoring a backup will replace your current records with the data from the backup file.\n\nMake sure to select a valid Dukaan Diary backup file from Google Drive or Downloads.")
+            .setPositiveButton("SELECT BACKUP FILE") { _, _ ->
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+                openDocumentLauncher.launch(intent)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun updateTabVisibility() {
@@ -268,19 +539,18 @@ class MainActivity : AppCompatActivity() {
         adapter.playingId = null
     }
 
-    override fun onPause() {
-        super.onPause()
-        stopPlayback()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopPlayback()
+    private fun updateLastBackupDisplay() {
+        val saved = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_BACKUP_TIME, null)
+        tvLastBackupStatus.text = if (saved != null) "Last synced to Drive: $saved" else "Tap to sync newly added tasks to Drive"
     }
 
     private fun refresh() {
         val showDone = cbShowDone.isChecked
         val stats = db.getDashboardStats()
+
+        val totalCount = db.countAll()
+        cardRestorePrompt.visibility = if (totalCount == 0 && currentTabPosition == 0) View.VISIBLE else View.GONE
 
         // Update dashboard KPI stats
         tvDashPaymentAmount.text = "Rs. " + moneyFmt.format(stats.totalDuePaymentAmount)

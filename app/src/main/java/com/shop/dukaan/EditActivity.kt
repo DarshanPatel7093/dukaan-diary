@@ -80,7 +80,7 @@ class EditActivity : AppCompatActivity() {
                                 target.setText(num)
                             }
                             etProduct -> {
-                                target.setText(cleanProductText(matches[0]))
+                                target.setText(cleanProductFromCandidates(matches))
                             }
                             etName -> {
                                 target.setText(capitalizeWords(matches[0]))
@@ -102,6 +102,8 @@ class EditActivity : AppCompatActivity() {
                         }
                         target.setSelection(target.text?.length ?: 0)
                     }
+                } else {
+                    toast("No speech detected. Please speak clearly.")
                 }
             }
         }
@@ -495,49 +497,52 @@ class EditActivity : AppCompatActivity() {
         activeSpeechTarget = target
         val langCode = getSavedLanguageCode()
 
-        // WEB_SEARCH model is tuned for proper nouns, Indian names, brands, and products
-        val model = if (target == etNote) {
-            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-        } else {
-            RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH
-        }
-
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, model)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
-            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
         }
         try {
             speechRecognizerLauncher.launch(intent)
         } catch (e: ActivityNotFoundException) {
-            toast("Speech recognition is not available")
+            toast("Speech recognition is not available on this device")
         }
     }
 
-    private fun cleanProductText(raw: String): String {
+    private fun cleanProductFromCandidates(candidates: List<String>): String {
+        for (raw in candidates) {
+            val res = identifyProduct(raw)
+            if (res != null) return res
+        }
+        return capitalizeWords(candidates[0].trim())
+    }
+
+    private fun identifyProduct(raw: String): String? {
         val trimmed = raw.trim()
         val lower = trimmed.lowercase(Locale.ENGLISH)
 
         return when {
             lower.contains("phrease") || lower.contains("phrase") || lower.contains("friedge") ||
-            lower.contains("frige") || lower.contains("freez") || lower.contains("freeze") ||
+            lower.contains("frige") || lower.contains("fridge") || lower.contains("freez") || lower.contains("freeze") ||
             lower.contains("frize") || lower.contains("frij") || lower.contains("friz") -> "Fridge"
 
-            lower.contains("washing") || lower.contains("vashing") -> "Washing Machine"
+            lower.contains("washing") || lower.contains("vashing") || lower.contains("kapda") -> "Washing Machine"
             lower.contains("geyser") || lower.contains("giser") || lower.contains("gizer") || lower.contains("geezer") -> "Geyser"
             lower.contains("cooler") || lower.contains("kooler") -> "Cooler"
-            lower.contains("arrow") || lower.contains("ar o") || lower.contains("r o") || lower == "ro" -> "RO Filter"
-            lower.contains("fan") || lower.contains("pankha") -> "Fan"
+            lower.contains("arrow") || lower.contains("ar o") || lower.contains("r o") || lower == "ro" || lower.contains("purifier") -> "RO Filter"
+            lower.contains("fan") || lower.contains("pankha") || lower.contains("pankho") -> "Fan"
             lower.contains("ac") || lower.contains("a c") || lower.contains("air conditioner") -> "AC"
             lower.contains("tv") || lower.contains("t v") || lower.contains("television") -> "TV"
             lower.contains("microwave") || lower.contains("oven") -> "Microwave Oven"
             lower.contains("inverter") || lower.contains("invertor") -> "Inverter"
-            lower.contains("motor") -> "Water Motor"
-            lower.contains("chimney") -> "Chimney"
-            else -> capitalizeWords(trimmed)
+            lower.contains("motor") || lower.contains("pump") -> "Water Motor"
+            lower.contains("chimney") || lower.contains("chimni") -> "Chimney"
+            lower.contains("mobile") || lower.contains("phone") -> "Mobile Phone"
+            lower.contains("laptop") || lower.contains("computer") -> "Laptop"
+            else -> null
         }
     }
 

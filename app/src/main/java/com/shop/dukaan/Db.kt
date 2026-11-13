@@ -144,6 +144,13 @@ class Db(context: Context) :
         writableDatabase.delete("leads", "id=?", arrayOf(l.id.toString()))
     }
 
+    /** Total count of all leads across payments and services. */
+    fun countAll(): Int {
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM leads", null).use { c ->
+            return if (c.moveToFirst()) c.getInt(0) else 0
+        }
+    }
+
     /** Pending items that are due today or overdue. */
     fun countDue(type: String): Int {
         val endOfToday = addDays(startOfDay(), 1)

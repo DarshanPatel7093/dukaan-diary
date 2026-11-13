@@ -18,6 +18,9 @@ Any entry or voice note can be deleted (with a confirmation).
 - **Colour Status**: OVERDUE (red), TODAY (orange), TOMORROW (blue), later (green).
 - **CALL Button**: One-tap phone dialer with customer's number.
 - **DONE Button**: Mark complete with one tap (tick "Show completed" to see history; UNDO available).
+- **App Security (App Lock)**: Protect customer records with your phone's Fingerprint, Face, or PIN lock.
+- **Google Drive & Phone Storage Backup**: Export your full database and voice recordings into a single backup file directly to Google Drive or phone storage. Restore it anytime with one tap.
+- **Data Safety on App Updates**: Installing updated APKs over existing ones preserves all local records without deletion.
 - **Daily Reminders**: Offline notifications at 9:00 AM and 5:00 PM when something is due.
 
 ## How to build the APK
@@ -50,5 +53,8 @@ You do not need to install Android Studio or heavy tools on your computer. GitHu
 - On some phones (Xiaomi, Oppo, Vivo, Realme, Samsung) set Battery to "No restrictions"
   / allow auto-start for Dukaan Diary, otherwise the phone may block the reminders.
 
-## Backup
-Data lives only on the phone. Uninstalling the app deletes it. A backup/export feature can be added later.
+## Backup & Security
+1. **App Lock**: Tap the `🛡️ Backup` button at the top right to enable App Lock. When enabled, your Fingerprint, Face, or PIN is required to open the app.
+2. **Backing up to Google Drive or Phone**: Tap `🛡️ Backup` > `Save to Google Drive / Phone`. Select Google Drive in the side menu (or Downloads/Documents) to save your `.dukaan` backup file.
+3. **Restoring Data**: If you uninstall the app or move to a new phone, install Dukaan Diary, tap `🛡️ Backup` > `Restore from Google Drive / Phone`, and choose your backup file.
+4. **App Updates**: When updating Dukaan Diary with a new APK, simply install it **over** your existing app without uninstalling first — all your records will remain completely intact.
