@@ -21,21 +21,25 @@
             android:textStyle="bold" />
 
         <LinearLayout
+            android:id="@+id/layoutVoiceLang"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#EFF6FF"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="16dp"
-            android:paddingTop="8dp"
+            android:paddingTop="10dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="8dp">
+            android:paddingBottom="10dp">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="🎙️ Tap 🎤 to speak. Language:"
+                android:text="🎙️ Voice Language (Tap to change):"
                 android:textColor="#1E40AF"
                 android:textSize="13sp" />
 
@@ -45,12 +49,12 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_badge_today"
                 android:paddingStart="10dp"
-                android:paddingTop="4dp"
+                android:paddingTop="5dp"
                 android:paddingEnd="10dp"
-                android:paddingBottom="4dp"
+                android:paddingBottom="5dp"
                 android:text="English (India) ▾"
                 android:textColor="#92400E"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 

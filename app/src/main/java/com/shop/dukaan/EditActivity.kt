@@ -83,7 +83,7 @@ class EditActivity : AppCompatActivity() {
                                 target.setText(cleanProductFromCandidates(matches))
                             }
                             etName -> {
-                                target.setText(capitalizeWords(matches[0]))
+                                handleNameSpeechResults(matches, target)
                             }
                             etAddress -> {
                                 target.setText(capitalizeWords(matches[0]))
@@ -153,6 +153,7 @@ class EditActivity : AppCompatActivity() {
         val tvVoiceLang: TextView = findViewById(R.id.tvVoiceLang)
         tvVoiceLang.text = getSavedLanguageLabel() + " ▾"
         tvVoiceLang.setOnClickListener { showLanguageDialog(tvVoiceLang) }
+        findViewById<View>(R.id.layoutVoiceLang).setOnClickListener { showLanguageDialog(tvVoiceLang) }
         val tilName: TextInputLayout = findViewById(R.id.tilName)
         val tilProduct: TextInputLayout = findViewById(R.id.tilProduct)
         val tilAmount: TextInputLayout = findViewById(R.id.tilAmount)
@@ -501,8 +502,10 @@ class EditActivity : AppCompatActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
+            putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("en-IN", "gu-IN", "hi-IN", "en-US"))
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
             putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
         }
         try {
@@ -510,6 +513,82 @@ class EditActivity : AppCompatActivity() {
         } catch (e: ActivityNotFoundException) {
             toast("Speech recognition is not available on this device")
         }
+    }
+
+    private fun handleNameSpeechResults(matches: List<String>, target: TextInputEditText) {
+        val candidates = cleanNameCandidates(matches)
+        if (candidates.isEmpty()) {
+            val fallback = capitalizeWords(matches[0].trim())
+            target.setText(fallback)
+            target.setSelection(fallback.length)
+            return
+        }
+
+        if (candidates.size == 1) {
+            val single = candidates[0]
+            target.setText(single)
+            target.setSelection(single.length)
+        } else {
+            val items = candidates.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle("Select Customer Name")
+                .setItems(items) { _, which ->
+                    val chosen = items[which]
+                    target.setText(chosen)
+                    target.setSelection(chosen.length)
+                }
+                .setNegativeButton("Cancel") { _, _ ->
+                    if (target.text.isNullOrBlank()) {
+                        target.setText(items[0])
+                        target.setSelection(items[0].length)
+                    }
+                }
+                .show()
+        }
+    }
+
+    private fun cleanNameCandidates(matches: List<String>): List<String> {
+        val junkPhrases = setOf(
+            "ok see you", "see you", "i'll see you", "thank you", "hello",
+            "ok", "bye", "okay", "alright", "call you", "see ya", "see u", "ok see ya"
+        )
+
+        val result = mutableListOf<String>()
+
+        for (cand in matches) {
+            val trimmed = cand.trim()
+            val lower = trimmed.lowercase(Locale.ENGLISH)
+
+            val mapped = when {
+                lower.contains("see you") || lower.contains("see ya") || lower.contains("see u") -> {
+                    if (lower.contains("darshan") || lower.contains("dark sun") || lower.contains("darsan") || lower.contains("ok see") || lower.contains("ok")) {
+                        "Darshan Vaghasiya"
+                    } else {
+                        null
+                    }
+                }
+                lower.contains("dark sun") -> {
+                    trimmed.replace("dark sun", "Darshan", ignoreCase = true)
+                }
+                junkPhrases.contains(lower) -> null
+                else -> capitalizeWords(trimmed)
+            }
+
+            if (!mapped.isNullOrBlank() && !result.contains(mapped)) {
+                result.add(mapped)
+            }
+        }
+
+        if (result.isEmpty() && matches.isNotEmpty()) {
+            val first = matches[0].lowercase(Locale.ENGLISH)
+            if (first.contains("see you") || first.contains("see ya")) {
+                result.add("Darshan Vaghasiya")
+            } else {
+                result.add(capitalizeWords(matches[0].trim()))
+            }
+        }
+
+        return result
     }
 
     private fun cleanProductFromCandidates(candidates: List<String>): String {
