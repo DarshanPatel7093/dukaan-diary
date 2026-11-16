@@ -15,6 +15,7 @@ import java.util.Locale
 
 class LeadAdapter(
     private val onCall: (Lead) -> Unit,
+    private val onMessage: (Lead) -> Unit,
     private val onDone: (Lead) -> Unit,
     private val onDelete: (Lead) -> Unit,
     private val onOpen: (Lead) -> Unit,
@@ -45,11 +46,13 @@ class LeadAdapter(
         val amount: TextView = v.findViewById(R.id.tvAmount)
         val product: TextView = v.findViewById(R.id.tvProduct)
         val extra: TextView = v.findViewById(R.id.tvExtra)
+        val assignedEmp: TextView = v.findViewById(R.id.tvAssignedEmployee)
         val date: TextView = v.findViewById(R.id.tvDate)
         val note: TextView = v.findViewById(R.id.tvNote)
         val layoutVoice: View = v.findViewById(R.id.layoutVoice)
         val btnPlayVoice: MaterialButton = v.findViewById(R.id.btnPlayVoice)
         val btnCall: MaterialButton = v.findViewById(R.id.btnCall)
+        val btnMessage: MaterialButton = v.findViewById(R.id.btnMessage)
         val btnDone: MaterialButton = v.findViewById(R.id.btnDone)
         val btnDelete: MaterialButton = v.findViewById(R.id.btnDelete)
     }
@@ -61,38 +64,77 @@ class LeadAdapter(
 
     override fun onBindViewHolder(h: VH, position: Int) {
         val l = items[position]
-        val isPayment = l.type == TYPE_PAYMENT
+        val isToCollect = l.type == TYPE_PAYMENT
+        val isToPay = l.type == TYPE_PAYMENT_PAY
+        val isService = l.type == TYPE_SERVICE
 
         // Type Badge
-        h.typeBadge.text = if (isPayment) "💰 PAYMENT" else "🔧 SERVICE"
-        h.typeBadge.setTextColor(Color.parseColor(if (isPayment) "#1565C0" else "#512DA8"))
-        h.typeBadge.setBackgroundResource(if (isPayment) R.drawable.bg_badge_payment else R.drawable.bg_badge_service)
+        when {
+            isToCollect -> {
+                h.typeBadge.text = "💰 TO COLLECT"
+                h.typeBadge.setTextColor(Color.parseColor("#1565C0"))
+                h.typeBadge.setBackgroundResource(R.drawable.bg_badge_payment)
+            }
+            isToPay -> {
+                h.typeBadge.text = "📤 TO PAY"
+                h.typeBadge.setTextColor(Color.parseColor("#C2410C"))
+                h.typeBadge.setBackgroundResource(R.drawable.bg_badge_to_pay)
+            }
+            else -> {
+                h.typeBadge.text = "🔧 SERVICE"
+                h.typeBadge.setTextColor(Color.parseColor("#512DA8"))
+                h.typeBadge.setBackgroundResource(R.drawable.bg_badge_service)
+            }
+        }
 
-        // Name
+        // Name (Customer or Distributor)
         h.name.text = l.name
 
-        // Amount (Prominent for payments)
-        if (isPayment && l.amount > 0) {
+        // Amount
+        if ((isToCollect || isToPay) && l.amount > 0) {
             h.amount.visibility = View.VISIBLE
-            h.amount.text = "₹ " + moneyFmt.format(l.amount) + " pending"
+            if (isToCollect) {
+                h.amount.setTextColor(Color.parseColor("#16A34A"))
+                h.amount.text = "₹ " + moneyFmt.format(l.amount) + " pending"
+            } else {
+                h.amount.setTextColor(Color.parseColor("#EA580C"))
+                h.amount.text = "₹ " + moneyFmt.format(l.amount) + " to pay"
+            }
         } else {
             h.amount.visibility = View.GONE
         }
 
-        // Product
-        h.product.text = (if (isPayment) "📦 Product: " else "🔧 Service for: ") + l.product
+        // Product / Payment Mode
+        val productPrefix = when {
+            isToCollect -> "📦 Item: "
+            isToPay -> "💳 Mode / Details: "
+            else -> "🔧 Service for: "
+        }
+        h.product.text = productPrefix + l.product
         h.product.visibility = if (l.product.isBlank()) View.GONE else View.VISIBLE
 
         // Address (For Services)
-        if (!isPayment && l.address.isNotBlank()) {
-            h.extra.text = "📍 Address: " + l.address
+        if (isService && l.address.isNotBlank()) {
+            h.extra.text = "📍 Location: " + l.address
             h.extra.visibility = View.VISIBLE
         } else {
             h.extra.visibility = View.GONE
         }
 
+        // Assigned Employee (For Services)
+        if (isService && l.assignedEmployeeName.isNotBlank()) {
+            h.assignedEmp.visibility = View.VISIBLE
+            h.assignedEmp.text = "👤 Assigned to: " + l.assignedEmployeeName
+        } else {
+            h.assignedEmp.visibility = View.GONE
+        }
+
         // Date
-        val datePrefix = if (isPayment) "📅 Promised to pay: " else "📅 Visit scheduled: "
+        val datePrefix = when {
+            isToCollect -> "📅 Customer promised on: "
+            isToPay -> "📅 Pay / Cheque date: "
+            else -> "📅 Worker visit scheduled: "
+        }
         h.date.text = datePrefix + dateFmt.format(Date(l.dateMillis))
 
         // Note
@@ -119,7 +161,7 @@ class LeadAdapter(
             h.layoutVoice.visibility = View.GONE
         }
 
-        // Status Badge with soft rounded pill styling
+        // Status Badge
         val days = ((l.dateMillis - startOfDay()) / 86_400_000L).toInt()
         val (label, textColor, bgRes) = when {
             l.done -> Triple("DONE", "#64748B", R.drawable.bg_badge_done)
@@ -134,11 +176,39 @@ class LeadAdapter(
 
         // Action Buttons
         h.btnCall.visibility = if (l.phone.isBlank()) View.GONE else View.VISIBLE
-        h.btnDone.text = if (l.done) "UNDO" else "✓ DONE"
-
         h.btnCall.setOnClickListener { onCall(l) }
+
+        // Message button (WhatsApp / SMS)
+        val hasPhoneToMessage = l.phone.isNotBlank() || (isService && l.assignedEmployeePhone.isNotBlank())
+        h.btnMessage.visibility = if (hasPhoneToMessage) View.VISIBLE else View.GONE
+        h.btnMessage.setOnClickListener { onMessage(l) }
+
+        // Done button text (Received / Paid / Done)
+        if (l.done) {
+            h.btnDone.text = "UNDO"
+            h.btnDone.setTextColor(Color.parseColor("#475569"))
+        } else {
+            when {
+                isToCollect -> {
+                    h.btnDone.text = "💰 RECEIVED"
+                    h.btnDone.setTextColor(Color.parseColor("#16A34A"))
+                }
+                isToPay -> {
+                    h.btnDone.text = "💳 PAID"
+                    h.btnDone.setTextColor(Color.parseColor("#C2410C"))
+                }
+                else -> {
+                    h.btnDone.text = "✓ DONE"
+                    h.btnDone.setTextColor(Color.parseColor("#16A34A"))
+                }
+            }
+        }
         h.btnDone.setOnClickListener { onDone(l) }
+
+        // Delete button
         h.btnDelete.setOnClickListener { onDelete(l) }
+
+        // Tap card to open/edit
         h.itemView.setOnClickListener { onOpen(l) }
     }
 }

@@ -8,17 +8,27 @@ import android.database.sqlite.SQLiteOpenHelper
 import java.io.File
 import java.util.Calendar
 
-const val TYPE_PAYMENT = "PAYMENT"
-const val TYPE_SERVICE = "SERVICE"
+// Entry types
+const val TYPE_PAYMENT = "PAYMENT"              // Customer Udhar (Money to collect)
+const val TYPE_PAYMENT_PAY = "PAYMENT_PAY"      // Distributor / Vendor (Money to pay)
+const val TYPE_SERVICE = "SERVICE"              // Service Visits (RO, AC, Repair)
 
 data class DashboardStats(
-    val todayPaymentCount: Int = 0,
-    val overduePaymentCount: Int = 0,
-    val totalDuePaymentCount: Int = 0,
-    val totalDuePaymentAmount: Double = 0.0,
-    val todayServiceCount: Int = 0,
-    val overdueServiceCount: Int = 0,
-    val totalDueServiceCount: Int = 0
+    val toCollectCount: Int = 0,
+    val toCollectAmount: Double = 0.0,
+    val toPayCount: Int = 0,
+    val toPayAmount: Double = 0.0,
+    val serviceCount: Int = 0,
+    val overdueCount: Int = 0,
+    val isToday: Boolean = true
+)
+
+data class Employee(
+    var id: Long = 0,
+    var name: String = "",
+    var phone: String = "",
+    var role: String = "",
+    var created: Long = System.currentTimeMillis()
 )
 
 data class Lead(
@@ -32,7 +42,10 @@ data class Lead(
     var dateMillis: Long = 0,
     var note: String = "",
     var audioPath: String? = null,
-    var done: Boolean = false
+    var done: Boolean = false,
+    var assignedEmployeeId: Long = 0,
+    var assignedEmployeeName: String = "",
+    var assignedEmployeePhone: String = ""
 )
 
 /** Midnight (start) of the day containing [millis]. */
@@ -54,7 +67,7 @@ fun addDays(millis: Long, days: Int): Long {
 }
 
 class Db(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "dukaan.db", null, 1) {
+    SQLiteOpenHelper(context.applicationContext, "dukaan.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -70,12 +83,48 @@ class Db(context: Context) :
                 note TEXT,
                 audio_path TEXT,
                 done INTEGER DEFAULT 0,
+                assigned_emp_id INTEGER DEFAULT 0,
+                assigned_emp_name TEXT,
+                assigned_emp_phone TEXT,
+                created INTEGER
+            )"""
+        )
+
+        db.execSQL(
+            """CREATE TABLE employees (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                role TEXT,
                 created INTEGER
             )"""
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            try {
+                db.execSQL("ALTER TABLE leads ADD COLUMN assigned_emp_id INTEGER DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE leads ADD COLUMN assigned_emp_name TEXT")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE leads ADD COLUMN assigned_emp_phone TEXT")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS employees (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        phone TEXT NOT NULL,
+                        role TEXT,
+                        created INTEGER
+                    )"""
+                )
+            } catch (_: Exception) {}
+        }
+    }
 
     private fun read(c: Cursor) = Lead(
         id = c.getLong(c.getColumnIndexOrThrow("id")),
@@ -88,7 +137,10 @@ class Db(context: Context) :
         dateMillis = c.getLong(c.getColumnIndexOrThrow("date_millis")),
         note = c.getString(c.getColumnIndexOrThrow("note")) ?: "",
         audioPath = c.getString(c.getColumnIndexOrThrow("audio_path")),
-        done = c.getInt(c.getColumnIndexOrThrow("done")) == 1
+        done = c.getInt(c.getColumnIndexOrThrow("done")) == 1,
+        assignedEmployeeId = try { c.getLong(c.getColumnIndexOrThrow("assigned_emp_id")) } catch (_: Exception) { 0L },
+        assignedEmployeeName = try { c.getString(c.getColumnIndexOrThrow("assigned_emp_name")) ?: "" } catch (_: Exception) { "" },
+        assignedEmployeePhone = try { c.getString(c.getColumnIndexOrThrow("assigned_emp_phone")) ?: "" } catch (_: Exception) { "" }
     )
 
     fun list(type: String, showDone: Boolean): List<Lead> {
@@ -118,6 +170,9 @@ class Db(context: Context) :
             put("note", l.note)
             put("audio_path", l.audioPath)
             put("done", if (l.done) 1 else 0)
+            put("assigned_emp_id", l.assignedEmployeeId)
+            put("assigned_emp_name", l.assignedEmployeeName)
+            put("assigned_emp_phone", l.assignedEmployeePhone)
         }
         return if (l.id == 0L) {
             cv.put("created", System.currentTimeMillis())
@@ -144,14 +199,14 @@ class Db(context: Context) :
         writableDatabase.delete("leads", "id=?", arrayOf(l.id.toString()))
     }
 
-    /** Total count of all leads across payments and services. */
+    /** Total count of all leads across all types. */
     fun countAll(): Int {
         readableDatabase.rawQuery("SELECT COUNT(*) FROM leads", null).use { c ->
             return if (c.moveToFirst()) c.getInt(0) else 0
         }
     }
 
-    /** Pending items that are due today or overdue. */
+    /** Pending items that are due today or overdue for a type. */
     fun countDue(type: String): Int {
         val endOfToday = addDays(startOfDay(), 1)
         readableDatabase.rawQuery(
@@ -160,83 +215,179 @@ class Db(context: Context) :
         ).use { c -> return if (c.moveToFirst()) c.getInt(0) else 0 }
     }
 
-    /** Summary statistics for today's dashboard (today + overdue). */
-    fun getDashboardStats(): DashboardStats {
-        val startToday = startOfDay()
-        val endToday = addDays(startToday, 1)
+    // ==================== EMPLOYEES CRUD ====================
 
-        var todayPay = 0
-        var overduePay = 0
-        var totalPayAmount = 0.0
-        var todaySvc = 0
-        var overdueSvc = 0
+    private fun readEmployee(c: Cursor) = Employee(
+        id = c.getLong(c.getColumnIndexOrThrow("id")),
+        name = c.getString(c.getColumnIndexOrThrow("name")) ?: "",
+        phone = c.getString(c.getColumnIndexOrThrow("phone")) ?: "",
+        role = c.getString(c.getColumnIndexOrThrow("role")) ?: "",
+        created = c.getLong(c.getColumnIndexOrThrow("created"))
+    )
 
-        // Payments due today or overdue
+    fun listEmployees(): List<Employee> {
+        val out = ArrayList<Employee>()
+        readableDatabase.query("employees", null, null, null, null, null, "name ASC")
+            .use { c -> while (c.moveToNext()) out.add(readEmployee(c)) }
+        return out
+    }
+
+    fun getEmployee(id: Long): Employee? {
+        readableDatabase.query("employees", null, "id=?", arrayOf(id.toString()), null, null, null)
+            .use { c -> return if (c.moveToFirst()) readEmployee(c) else null }
+    }
+
+    fun saveEmployee(e: Employee): Long {
+        val cv = ContentValues().apply {
+            put("name", e.name)
+            put("phone", e.phone)
+            put("role", e.role)
+        }
+        return if (e.id == 0L) {
+            cv.put("created", System.currentTimeMillis())
+            writableDatabase.insert("employees", null, cv)
+        } else {
+            writableDatabase.update("employees", cv, "id=?", arrayOf(e.id.toString()))
+            e.id
+        }
+    }
+
+    fun deleteEmployee(id: Long) {
+        writableDatabase.delete("employees", "id=?", arrayOf(id.toString()))
+    }
+
+    // ==================== DASHBOARD & CALENDAR METHODS ====================
+
+    /**
+     * Summary statistics for a specific selected date.
+     * If [selectedDateMillis] is today, includes today's items + overdue items.
+     * If [selectedDateMillis] is another date, includes items for that specific date.
+     */
+    fun getDashboardStatsForDate(selectedDateMillis: Long): DashboardStats {
+        val selectedStart = startOfDay(selectedDateMillis)
+        val selectedEnd = addDays(selectedStart, 1)
+        val todayStart = startOfDay()
+        val isToday = selectedStart == todayStart
+
+        var toCollectCount = 0
+        var toCollectAmount = 0.0
+        var toPayCount = 0
+        var toPayAmount = 0.0
+        var serviceCount = 0
+        var overdueCount = 0
+
+        // 1. To Collect (Customer Udhar)
+        val whereCollect = if (isToday) {
+            "type = ? AND done = 0 AND date_millis < ?"
+        } else {
+            "type = ? AND done = 0 AND date_millis >= ? AND date_millis < ?"
+        }
+        val argsCollect = if (isToday) {
+            arrayOf(TYPE_PAYMENT, selectedEnd.toString())
+        } else {
+            arrayOf(TYPE_PAYMENT, selectedStart.toString(), selectedEnd.toString())
+        }
+
         readableDatabase.rawQuery(
-            """SELECT 
-                SUM(CASE WHEN date_millis >= ? AND date_millis < ? THEN 1 ELSE 0 END),
-                SUM(CASE WHEN date_millis < ? THEN 1 ELSE 0 END),
-                SUM(amount)
-               FROM leads 
-               WHERE type = ? AND done = 0 AND date_millis < ?""",
-            arrayOf(
-                startToday.toString(),
-                endToday.toString(),
-                startToday.toString(),
-                TYPE_PAYMENT,
-                endToday.toString()
-            )
+            "SELECT COUNT(*), SUM(amount) FROM leads WHERE $whereCollect",
+            argsCollect
         ).use { c ->
             if (c.moveToFirst()) {
-                todayPay = if (!c.isNull(0)) c.getInt(0) else 0
-                overduePay = if (!c.isNull(1)) c.getInt(1) else 0
-                totalPayAmount = if (!c.isNull(2)) c.getDouble(2) else 0.0
+                toCollectCount = if (!c.isNull(0)) c.getInt(0) else 0
+                toCollectAmount = if (!c.isNull(1)) c.getDouble(1) else 0.0
             }
         }
 
-        // Services due today or overdue
+        // 2. To Pay (Distributor Payments)
+        val wherePay = if (isToday) {
+            "type = ? AND done = 0 AND date_millis < ?"
+        } else {
+            "type = ? AND done = 0 AND date_millis >= ? AND date_millis < ?"
+        }
+        val argsPay = if (isToday) {
+            arrayOf(TYPE_PAYMENT_PAY, selectedEnd.toString())
+        } else {
+            arrayOf(TYPE_PAYMENT_PAY, selectedStart.toString(), selectedEnd.toString())
+        }
+
         readableDatabase.rawQuery(
-            """SELECT 
-                SUM(CASE WHEN date_millis >= ? AND date_millis < ? THEN 1 ELSE 0 END),
-                SUM(CASE WHEN date_millis < ? THEN 1 ELSE 0 END)
-               FROM leads 
-               WHERE type = ? AND done = 0 AND date_millis < ?""",
-            arrayOf(
-                startToday.toString(),
-                endToday.toString(),
-                startToday.toString(),
-                TYPE_SERVICE,
-                endToday.toString()
-            )
+            "SELECT COUNT(*), SUM(amount) FROM leads WHERE $wherePay",
+            argsPay
         ).use { c ->
             if (c.moveToFirst()) {
-                todaySvc = if (!c.isNull(0)) c.getInt(0) else 0
-                overdueSvc = if (!c.isNull(1)) c.getInt(1) else 0
+                toPayCount = if (!c.isNull(0)) c.getInt(0) else 0
+                toPayAmount = if (!c.isNull(1)) c.getDouble(1) else 0.0
+            }
+        }
+
+        // 3. Service Visits
+        val whereSvc = if (isToday) {
+            "type = ? AND done = 0 AND date_millis < ?"
+        } else {
+            "type = ? AND done = 0 AND date_millis >= ? AND date_millis < ?"
+        }
+        val argsSvc = if (isToday) {
+            arrayOf(TYPE_SERVICE, selectedEnd.toString())
+        } else {
+            arrayOf(TYPE_SERVICE, selectedStart.toString(), selectedEnd.toString())
+        }
+
+        readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM leads WHERE $whereSvc",
+            argsSvc
+        ).use { c ->
+            if (c.moveToFirst()) {
+                serviceCount = if (!c.isNull(0)) c.getInt(0) else 0
+            }
+        }
+
+        // 4. Overdue count (items before today that are not done)
+        readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM leads WHERE done = 0 AND date_millis < ?",
+            arrayOf(todayStart.toString())
+        ).use { c ->
+            if (c.moveToFirst()) {
+                overdueCount = if (!c.isNull(0)) c.getInt(0) else 0
             }
         }
 
         return DashboardStats(
-            todayPaymentCount = todayPay,
-            overduePaymentCount = overduePay,
-            totalDuePaymentCount = todayPay + overduePay,
-            totalDuePaymentAmount = totalPayAmount,
-            todayServiceCount = todaySvc,
-            overdueServiceCount = overdueSvc,
-            totalDueServiceCount = todaySvc + overdueSvc
+            toCollectCount = toCollectCount,
+            toCollectAmount = toCollectAmount,
+            toPayCount = toPayCount,
+            toPayAmount = toPayAmount,
+            serviceCount = serviceCount,
+            overdueCount = overdueCount,
+            isToday = isToday
         )
     }
 
-    /** Returns leads due today or overdue for the Dashboard. */
-    fun listDashboard(typeFilter: String? = null, showDone: Boolean = false): List<Lead> {
-        val endToday = addDays(startOfDay(), 1)
+    /**
+     * Returns leads for a specific date on the Dashboard.
+     * If [selectedDateMillis] is today, includes items scheduled for today + overdue items.
+     * If [selectedDateMillis] is another date, includes items for that specific date.
+     */
+    fun listForDate(selectedDateMillis: Long, typeFilter: String? = null, showDone: Boolean = false): List<Lead> {
+        val selectedStart = startOfDay(selectedDateMillis)
+        val selectedEnd = addDays(selectedStart, 1)
+        val todayStart = startOfDay()
+        val isToday = selectedStart == todayStart
+
         val where = StringBuilder()
         val args = ArrayList<String>()
 
         if (!showDone) {
             where.append("done = 0 AND ")
         }
-        where.append("date_millis < ?")
-        args.add(endToday.toString())
+
+        if (isToday) {
+            where.append("date_millis < ?")
+            args.add(selectedEnd.toString())
+        } else {
+            where.append("date_millis >= ? AND date_millis < ?")
+            args.add(selectedStart.toString())
+            args.add(selectedEnd.toString())
+        }
 
         if (typeFilter != null) {
             where.append(" AND type = ?")
@@ -250,4 +401,11 @@ class Db(context: Context) :
         ).use { c -> while (c.moveToNext()) out.add(read(c)) }
         return out
     }
+
+    /** Backward compatibility for today's dashboard. */
+    fun getDashboardStats(): DashboardStats = getDashboardStatsForDate(System.currentTimeMillis())
+
+    /** Backward compatibility. */
+    fun listDashboard(typeFilter: String? = null, showDone: Boolean = false): List<Lead> =
+        listForDate(System.currentTimeMillis(), typeFilter, showDone)
 }

@@ -1,60 +1,72 @@
-# Dukaan Diary (Android, fully offline)
+# Dukaan Diary (Android, fully offline & secure)
 
-Simple app for a shop owner to note:
-- **Payments (Udhar)**: customer, product, amount, date the customer promised to pay
-- **Service visits**: customer, product (e.g. RO filter), address, date the worker must visit
+A complete offline management app for shop owners and technicians:
+- **💰 To Collect (Customer Udhar)**: customer, product, amount, promised payment date, voice notes.
+- **📤 To Pay (Distributor / Cheque Payments)**: distributor name, bank cheque / payment details, clearance date, notes.
+- **🔧 Service Visits**: customer, appliance (e.g. RO filter, AC), address, date, and assigned employee / technician.
+- **👥 Service Team Management**: Manage employees and dispatch work details via WhatsApp with one tap.
 
 Each entry can have a **voice note** (record, play, re-record, delete) so no typing is needed.
-Any entry or voice note can be deleted (with a confirmation).
-
-## Features
-- **Today's Dashboard**: Quick overview of today's pending payments, total money to collect (Rs.), and service visits scheduled for today/overdue, with one-tap filter chips (`All Today`, `Payments`, `Services`).
-- **Payments (Udhar)**: Track customer credit, product, amount, promised date, notes, and voice notes.
-- **Service Visits**: Track service visits (e.g. RO filter, AC repair), address, scheduled date, notes, and voice notes.
-- **Speech-to-Text (Voice Input)**: Tap the mic 🎤 icon in Customer Name, Product, Amount, Address, or Note to speak instead of typing. Mobile number remains manual typing for accuracy.
-- **Direct Audio Playback on Dashboard**: Listen to voice notes directly from the reminder card using the `▶ LISTEN` button without opening the entry.
-- **Voice Notes**: Stored privately inside the app's internal storage (not in public gallery/music players).
-- **100% Offline**: Local SQLite database, runs with no internet permission, no account, no server.
-- **Colour Status**: OVERDUE (red), TODAY (orange), TOMORROW (blue), later (green).
-- **CALL Button**: One-tap phone dialer with customer's number.
-- **DONE Button**: Mark complete with one tap (tick "Show completed" to see history; UNDO available).
-- **App Security (App Lock)**: Protect customer records with your phone's Fingerprint, Face, or PIN lock.
-- **Google Drive & Phone Storage Backup**: Export your full database and voice recordings into a single backup file directly to Google Drive or phone storage. Restore it anytime with one tap.
-- **Data Safety on App Updates**: Installing updated APKs over existing ones preserves all local records without deletion.
-- **Daily Reminders**: Offline notifications at 9:00 AM and 5:00 PM when something is due.
-
-## How to build the APK
-
-### Method 1: Without Installing Android Studio (Using GitHub Actions - Recommended)
-You do not need to install Android Studio or heavy tools on your computer. GitHub will build the APK for you in the cloud for free:
-
-1. Push this project to your GitHub repository:
-   ```bash
-   git add .
-   git commit -m "Update workflow"
-   git push
-   ```
-2. Open your repository on GitHub in a web browser: `https://github.com/DarshanPatel7093/dukaan-diary`
-3. Click on the **Actions** tab at the top.
-4. Select the latest **Build APK** workflow run (or click **Run workflow**).
-5. Once complete (takes ~1-2 minutes), scroll down to the **Artifacts** section and click **DukaanDiary-apk** to download the zip file.
-6. Unzip it to get `app-debug.apk`. Transfer it to your Android phone via WhatsApp, USB cable, or Google Drive, and tap to install!
 
 ---
 
-### Method 2: Using Android Studio (Optional)
-1. Install Android Studio: https://developer.android.com/studio
-2. Open this project folder in Android Studio.
-3. Click **Build** > **Build Bundle(s) / APK(s)** > **Build APK(s)**.
-4. The generated APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
+## What's New in v1.3
 
-## Phone settings for reliable reminders
-- Allow Notifications when the app asks (Android 13+).
-- On some phones (Xiaomi, Oppo, Vivo, Realme, Samsung) set Battery to "No restrictions"
-  / allow auto-start for Dukaan Diary, otherwise the phone may block the reminders.
+1. **📅 Interactive Calendar on Dashboard**:
+   - Tap ◀ / ▶ or pick any date from the calendar to view reminder entries for that specific date.
+   - Quick date chips: `Yesterday`, `Today`, `Tomorrow`, `Pick Date 📅`.
+   - Real-time KPI summaries for the selected date: **To Collect (₹)**, **To Pay (₹)**, and **Services count**.
+2. **⏰ Reminders Every 2 Hours (8:00 AM to 10:00 PM)**:
+   - Reminders trigger every 2 hours: 8:00 AM, 10:00 AM, 12:00 PM, 2:00 PM, 4:00 PM, 6:00 PM, 8:00 PM, 10:00 PM.
+   - Shows detailed notifications of due payments to collect, cheques to pay, and services.
+3. **☰ Left Navigation Drawer**:
+   - Access all app sections from the hamburger menu:
+     - 📊 Dashboard & Calendar
+     - 💰 To Collect (Customer Udhar)
+     - 📤 To Pay (Distributor Payments)
+     - 🔧 Service Visits
+     - 👥 Manage Employees
+     - ⚙️ Settings & Theme
+     - 🛡️ Backup & Restore
+4. **⚙️ App Settings**:
+   - **Theme Mode**: Choose between **Follow System Default**, **☀️ Light Theme**, or **🌙 Dark Theme**.
+   - **Google Drive Backup ID Setup**: Configure custom Drive Folder ID or account label.
+   - **Notification test tool**.
+5. **📤 Distributor Payments (To Pay)**:
+   - Track payments you owe to distributors/parties (e.g. bank cheques given to Soham Enterprise to withdraw on 20 Nov).
+   - Enter party name, amount, cheque number / bank mode, and due date.
+6. **👥 Employee / Technician Management**:
+   - Add employees with name, mobile number, and role (e.g. RO Technician, Electrician).
+   - Quick call, WhatsApp, or delete directly from the employee list.
+7. **📲 Service Assignment & WhatsApp Dispatch**:
+   - Assign any service visit to a technician with one tap.
+   - One-tap button **"📲 Send Details to Employee"** generates a formatted WhatsApp dispatch containing customer name, phone number, address location, scheduled date, and appliance details!
+8. **🔘 Card Action Buttons**:
+   - **📞 CALL**: One-tap phone dialer.
+   - **💬 MSG**: Pre-filled professional WhatsApp/SMS reminders (for customers, distributors, or employee dispatch).
+   - **💰 RECEIVED / 💳 PAID / ✓ DONE**: One-tap completion with undo.
+   - **🗑️ DELETE**: With safety confirmation.
+   - **▶ LISTEN**: Direct audio player on the reminder card.
 
-## Backup & Security
-1. **App Lock**: Tap the `🛡️ Backup` button at the top right to enable App Lock. When enabled, your Fingerprint, Face, or PIN is required to open the app.
-2. **Backing up to Google Drive or Phone**: Tap `🛡️ Backup` > `Save to Google Drive / Phone`. Select Google Drive in the side menu (or Downloads/Documents) to save your `.dukaan` backup file.
-3. **Restoring Data**: If you uninstall the app or move to a new phone, install Dukaan Diary, tap `🛡️ Backup` > `Restore from Google Drive / Phone`, and choose your backup file.
-4. **App Updates**: When updating Dukaan Diary with a new APK, simply install it **over** your existing app without uninstalling first — all your records will remain completely intact.
+---
+
+## How to build the APK
+
+### Without Installing Android Studio (Using GitHub Actions)
+1. Push changes to GitHub:
+   ```bash
+   git add .
+   git commit -m "Add calendar dashboard, distributor payments, employee dispatch, settings and theme"
+   git push origin main
+   ```
+2. Open your repository on GitHub: `https://github.com/DarshanPatel7093/dukaan-diary`
+3. Click on the **Actions** tab at the top.
+4. Select the latest **Build APK** workflow run.
+5. Once complete (~1-2 minutes), download the **DukaanDiary-apk** artifact zip file.
+6. Unzip to get `app-debug.apk` and install on your phone!
+
+---
+
+## App Updates & Data Safety
+- Thanks to the permanent keystore configuration, you can install new APK updates directly **over** your existing app without uninstalling—your database and voice notes will remain 100% intact!
+- For extra safety, tap **🛡️ Backup** anytime to save a `.dukaan` archive directly to **Google Drive** or local phone storage.

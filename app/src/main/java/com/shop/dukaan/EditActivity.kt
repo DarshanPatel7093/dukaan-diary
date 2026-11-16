@@ -9,9 +9,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -52,6 +54,9 @@ class EditActivity : AppCompatActivity() {
     private lateinit var btnRecord: MaterialButton
     private lateinit var btnPlay: MaterialButton
     private lateinit var btnDeleteVoice: MaterialButton
+    private lateinit var layoutAssignEmployee: View
+    private lateinit var tvSelectedEmployee: TextView
+    private lateinit var btnSendToEmployee: MaterialButton
 
     private val dateFmt = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.ENGLISH)
 
@@ -135,7 +140,9 @@ class EditActivity : AppCompatActivity() {
         if (lead.id == 0L) {
             lead.type = intent.getStringExtra("type") ?: TYPE_PAYMENT
         }
-        val isPayment = lead.type == TYPE_PAYMENT
+        val isToCollect = lead.type == TYPE_PAYMENT
+        val isToPay = lead.type == TYPE_PAYMENT_PAY
+        val isService = lead.type == TYPE_SERVICE
 
         etName = findViewById(R.id.etName)
         etPhone = findViewById(R.id.etPhone)
@@ -148,6 +155,9 @@ class EditActivity : AppCompatActivity() {
         btnRecord = findViewById(R.id.btnRecord)
         btnPlay = findViewById(R.id.btnPlay)
         btnDeleteVoice = findViewById(R.id.btnDeleteVoice)
+        layoutAssignEmployee = findViewById(R.id.layoutAssignEmployee)
+        tvSelectedEmployee = findViewById(R.id.tvSelectedEmployee)
+        btnSendToEmployee = findViewById(R.id.btnSendToEmployee)
 
         val tvTitle: TextView = findViewById(R.id.tvTitle)
         val tvVoiceLang: TextView = findViewById(R.id.tvVoiceLang)
@@ -155,6 +165,7 @@ class EditActivity : AppCompatActivity() {
         tvVoiceLang.setOnClickListener { showLanguageDialog(tvVoiceLang) }
         findViewById<View>(R.id.layoutVoiceLang).setOnClickListener { showLanguageDialog(tvVoiceLang) }
         val tilName: TextInputLayout = findViewById(R.id.tilName)
+        val tilPhone: TextInputLayout = findViewById(R.id.tilPhone)
         val tilProduct: TextInputLayout = findViewById(R.id.tilProduct)
         val tilAmount: TextInputLayout = findViewById(R.id.tilAmount)
         val tilAddress: TextInputLayout = findViewById(R.id.tilAddress)
@@ -162,24 +173,58 @@ class EditActivity : AppCompatActivity() {
         val tvDateLabel: TextView = findViewById(R.id.tvDateLabel)
         val btnDeleteEntry: MaterialButton = findViewById(R.id.btnDeleteEntry)
 
-        if (isPayment) {
-            tvTitle.text = if (lead.id == 0L) "New Payment (Udhar)" else "Edit Payment"
-            tilProduct.hint = "Product given on credit"
-            tvDateLabel.text = "Customer will pay on:"
-            tilAddress.visibility = View.GONE
-        } else {
-            tvTitle.text = if (lead.id == 0L) "New Service Visit" else "Edit Service Visit"
-            tilProduct.hint = "Product (e.g. RO filter)"
-            tvDateLabel.text = "Worker should visit on:"
-            tilAmount.visibility = View.GONE
+        when {
+            isToCollect -> {
+                tvTitle.text = if (lead.id == 0L) "New Customer Udhar (To Collect)" else "Edit Customer Udhar"
+                tilName.hint = "Customer Name"
+                tilPhone.hint = "Customer Mobile Number"
+                tilProduct.hint = "Product given on credit"
+                tilAmount.hint = "Amount to collect (Rs.)"
+                tvDateLabel.text = "Customer will pay on:"
+                tilAddress.visibility = View.GONE
+                layoutAssignEmployee.visibility = View.GONE
+                tilAmount.visibility = View.VISIBLE
+            }
+            isToPay -> {
+                tvTitle.text = if (lead.id == 0L) "New Distributor Payment (To Pay)" else "Edit Payment to Pay"
+                tilName.hint = "Distributor / Party Name (e.g. Soham Enterprise)"
+                tilPhone.hint = "Distributor Mobile Number"
+                tilProduct.hint = "Payment Mode / Cheque No. (e.g. Bank Cheque)"
+                tilAmount.hint = "Amount to Pay (Rs.)"
+                tvDateLabel.text = "Cheque clearance / Payment date:"
+                tilAddress.visibility = View.GONE
+                layoutAssignEmployee.visibility = View.GONE
+                tilAmount.visibility = View.VISIBLE
+            }
+            else -> {
+                tvTitle.text = if (lead.id == 0L) "New Service Visit" else "Edit Service Visit"
+                tilName.hint = "Customer Name"
+                tilPhone.hint = "Customer Mobile Number"
+                tilProduct.hint = "Appliance / Product (e.g. RO filter, AC)"
+                tilAddress.hint = "Customer Address & Location"
+                tvDateLabel.text = "Worker should visit on:"
+                tilAddress.visibility = View.VISIBLE
+                layoutAssignEmployee.visibility = View.VISIBLE
+                tilAmount.visibility = View.GONE
+
+                updateAssignedEmployeeDisplay()
+                tvSelectedEmployee.setOnClickListener { showEmployeePickerDialog() }
+                btnSendToEmployee.setOnClickListener { sendServiceDetailsToEmployee() }
+            }
         }
 
         // Speech-to-text mic click listeners
         tilName.setEndIconOnClickListener {
-            requestSpeech(etName, "Say customer name")
+            val prompt = if (isToPay) "Say distributor or party name" else "Say customer name"
+            requestSpeech(etName, prompt)
         }
         tilProduct.setEndIconOnClickListener {
-            requestSpeech(etProduct, if (isPayment) "Say product given on credit" else "Say product or appliance")
+            val prompt = when {
+                isToCollect -> "Say product given on credit"
+                isToPay -> "Say payment mode, bank name or cheque number"
+                else -> "Say product or appliance"
+            }
+            requestSpeech(etProduct, prompt)
         }
         tilAmount.setEndIconOnClickListener {
             requestSpeech(etAmount, "Say amount (e.g. 500)")
@@ -201,7 +246,7 @@ class EditActivity : AppCompatActivity() {
             etNote.setText(lead.note)
             dateMillis = lead.dateMillis
         } else {
-            dateMillis = if (isPayment) startOfDay() else addDays(startOfDay(), 1)
+            dateMillis = if (isToCollect || isToPay) startOfDay() else addDays(startOfDay(), 1)
         }
         originalAudio = lead.audioPath
         audioPath = lead.audioPath
@@ -377,13 +422,137 @@ class EditActivity : AppCompatActivity() {
             .show()
     }
 
+    // ---------- Employee Assignment for Services ----------
+
+    private fun updateAssignedEmployeeDisplay() {
+        if (lead.assignedEmployeeName.isNotBlank()) {
+            tvSelectedEmployee.text = "👤 " + lead.assignedEmployeeName +
+                (if (lead.assignedEmployeePhone.isNotBlank()) " (${lead.assignedEmployeePhone})" else "") + " ▾"
+            btnSendToEmployee.visibility = View.VISIBLE
+        } else {
+            tvSelectedEmployee.text = "👤 Unassigned (Tap to select technician) ▾"
+            btnSendToEmployee.visibility = View.GONE
+        }
+    }
+
+    private fun showEmployeePickerDialog() {
+        val employees = db.listEmployees()
+        val options = ArrayList<String>()
+        options.add("❌ None (Unassigned)")
+        employees.forEach { emp ->
+            options.add("👤 ${emp.name} (${emp.phone})" + (if (emp.role.isNotBlank()) " - ${emp.role}" else ""))
+        }
+        options.add("➕ Add New Employee / Technician")
+
+        AlertDialog.Builder(this)
+            .setTitle("Assign Service Technician")
+            .setItems(options.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> {
+                        lead.assignedEmployeeId = 0L
+                        lead.assignedEmployeeName = ""
+                        lead.assignedEmployeePhone = ""
+                        updateAssignedEmployeeDisplay()
+                    }
+                    options.size - 1 -> {
+                        showAddEmployeeDialog()
+                    }
+                    else -> {
+                        val selectedEmp = employees[which - 1]
+                        lead.assignedEmployeeId = selectedEmp.id
+                        lead.assignedEmployeeName = selectedEmp.name
+                        lead.assignedEmployeePhone = selectedEmp.phone
+                        updateAssignedEmployeeDisplay()
+                    }
+                }
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
+    private fun showAddEmployeeDialog() {
+        val v = LayoutInflater.from(this).inflate(R.layout.dialog_add_employee, null)
+        val etEmpName: TextInputEditText = v.findViewById(R.id.etEmpName)
+        val etEmpPhone: TextInputEditText = v.findViewById(R.id.etEmpPhone)
+        val etEmpRole: TextInputEditText = v.findViewById(R.id.etEmpRole)
+
+        AlertDialog.Builder(this)
+            .setTitle("➕ Add Service Technician")
+            .setView(v)
+            .setPositiveButton("SAVE") { _, _ ->
+                val name = etEmpName.text.toString().trim()
+                val phone = etEmpPhone.text.toString().trim()
+                val role = etEmpRole.text.toString().trim()
+                if (name.isNotEmpty() && phone.isNotEmpty()) {
+                    val newId = db.saveEmployee(Employee(name = name, phone = phone, role = role))
+                    lead.assignedEmployeeId = newId
+                    lead.assignedEmployeeName = name
+                    lead.assignedEmployeePhone = phone
+                    updateAssignedEmployeeDisplay()
+                    toast("Technician '$name' added & assigned")
+                } else {
+                    toast("Please enter both name and mobile number")
+                }
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
+    private fun sendServiceDetailsToEmployee() {
+        val empPhone = lead.assignedEmployeePhone.trim()
+        if (empPhone.isEmpty()) {
+            toast("No phone number for assigned employee")
+            return
+        }
+
+        val custName = etName.text.toString().trim()
+        val custPhone = etPhone.text.toString().trim()
+        val product = etProduct.text.toString().trim()
+        val address = etAddress.text.toString().trim()
+        val note = etNote.text.toString().trim()
+        val dateStr = tvDate.text.toString()
+
+        val msg = StringBuilder().apply {
+            append("🔧 *Service Visit Assignment [Dukaan Diary]*\n")
+            if (custName.isNotEmpty()) append("👤 Customer: $custName\n")
+            if (custPhone.isNotEmpty()) append("📞 Customer Mobile: $custPhone\n")
+            if (address.isNotEmpty()) append("📍 Location / Address: $address\n")
+            if (product.isNotEmpty()) append("🛠️ Appliance / Product: $product\n")
+            append("📅 Scheduled Date: $dateStr\n")
+            if (note.isNotEmpty()) append("📝 Notes: $note\n")
+        }.toString()
+
+        openWhatsAppOrSms(empPhone, msg)
+    }
+
+    private fun openWhatsAppOrSms(phone: String, text: String) {
+        val cleanPhone = phone.replace("+", "").replace(" ", "").replace("-", "")
+        val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
+        try {
+            val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=" + Uri.encode(text))
+            }
+            startActivity(waIntent)
+        } catch (_: Exception) {
+            try {
+                val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("smsto:$cleanPhone")
+                    putExtra("sms_body", text)
+                }
+                startActivity(smsIntent)
+            } catch (_: Exception) {
+                toast("Could not open WhatsApp or SMS app")
+            }
+        }
+    }
+
     // ---------- Save / delete ----------
 
     private fun save() {
         if (recorder != null) stopRecording()
         val name = etName.text.toString().trim()
         if (name.isEmpty()) {
-            etName.error = "Please enter customer name"
+            etName.error = if (lead.type == TYPE_PAYMENT_PAY) "Please enter distributor or party name" else "Please enter customer name"
             etName.requestFocus()
             return
         }
