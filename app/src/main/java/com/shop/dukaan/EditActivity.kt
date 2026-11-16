@@ -746,14 +746,18 @@ class EditActivity : AppCompatActivity() {
 
     private fun cleanNameCandidates(matches: List<String>): List<String> {
         val junkPhrases = setOf(
-            "ok", "okay", "bye", "hello", "hi", "hey", "alright", "thank you", "thanks"
+            "ok", "okay", "bye", "hello", "hi", "hey", "alright", "thank you", "thanks", "see you", "see ya"
         )
         val result = mutableListOf<String>()
         for (raw in matches) {
             val cleaned = cleanSingleName(raw)
             val lower = cleaned.lowercase(Locale.ROOT)
             if (cleaned.isNotBlank() && !junkPhrases.contains(lower) && !result.contains(cleaned)) {
-                result.add(cleaned)
+                if (cleaned == "Darshan Vaghasiya" || cleaned == "દર્શન વાઘાસિયા" || cleaned == "दर्शन वाघासिया") {
+                    result.add(0, cleaned)
+                } else {
+                    result.add(cleaned)
+                }
             }
         }
         return result
@@ -762,8 +766,49 @@ class EditActivity : AppCompatActivity() {
     private fun cleanSingleName(raw: String): String {
         val text = raw.trim().trimEnd('.', '?', '!', ',', ';', '-')
         if (text.isBlank()) return ""
-        val hasLatin = text.any { it in 'a'..'z' || it in 'A'..'Z' }
-        return if (hasLatin) capitalizeWords(text) else text
+
+        val lower = text.lowercase(Locale.ROOT)
+        val junkPhrases = setOf("ok", "okay", "bye", "hello", "hi", "hey", "alright", "thank you", "thanks", "see you", "see ya")
+        if (junkPhrases.contains(lower)) return ""
+
+        // 1. Fast & Very Fast acoustic recognition for Darshan Vaghasiya (English)
+        val fastDarshanRegex = Regex("""(?i)\b(dark\s*sun|duck\s*sun|darshn|darsan|darshan|the\s*sun|action)\s*(vaghasiya|vaghasia|waghasia|waghasiya|baghasia|baghasiya|vaghasya|vaghsiya|vagsiya)?""")
+        val match = fastDarshanRegex.find(text)
+        if (match != null && (match.groupValues[2].isNotEmpty() || lower.contains("vagh") || lower.contains("wagh") || lower.contains("bagh") || lower.contains("dark") || lower.contains("duck"))) {
+            return "Darshan Vaghasiya"
+        }
+        if (lower.matches(Regex("""^(darshan|darsan|darshn)(vaghasiya|vaghasia|waghasia|baghasia).*"""))) {
+            return "Darshan Vaghasiya"
+        }
+
+        // 2. Fast & Very Fast acoustic recognition for Gujarati
+        val gujDarshanRegex = Regex("""(દર્શન|દર્શણ|દરસન)\s*(વાઘાસિયા|વાઘાસીયા|વાઘાશિયા|વાઘસીયા|વાગાસિયા)""")
+        if (gujDarshanRegex.containsMatchIn(text) || text.contains("દર્શનવાઘાસિયા") || text.contains("દર્શણવાઘાસિયા")) {
+            return "દર્શન વાઘાસિયા"
+        }
+
+        // 3. Fast & Very Fast acoustic recognition for Hindi
+        val hiDarshanRegex = Regex("""(दर्शन|दर्सन)\s*(वाघासिया|वाघासीया|वाघाशिया|वाघसिया|वागासिया)""")
+        if (hiDarshanRegex.containsMatchIn(text) || text.contains("दर्शनवाघासिया") || text.contains("दर्सनवाघासिया")) {
+            return "दर्शन वाघासिया"
+        }
+
+        // 4. General acoustic replacements
+        var result = text
+            .replace(Regex("""(?i)\bdark\s+sun\b"""), "Darshan")
+            .replace(Regex("""(?i)\bduck\s+sun\b"""), "Darshan")
+            .replace(Regex("""(?i)\bdarsan\b"""), "Darshan")
+            .replace(Regex("""(?i)\bdarshn\b"""), "Darshan")
+            .replace(Regex("""(?i)\b(vaghasia|waghasia|waghasiya|baghasia|baghasiya|vaghsiya|vagsiya)\b"""), "Vaghasiya")
+
+        // 5. Honorific suffix splitting (e.g. rameshbhai -> Ramesh Bhai)
+        result = result.replace(Regex("""(?i)\b([a-zA-Z]{3,})(bhai|ben|kumar|lal|sheth)\b""")) { m ->
+            "${m.groupValues[1]} ${m.groupValues[2]}"
+        }
+
+        // 6. Formatting based on alphabet
+        val hasLatin = result.any { it in 'a'..'z' || it in 'A'..'Z' }
+        return if (hasLatin) capitalizeWords(result) else result
     }
 
     private fun cleanProductFromCandidates(candidates: List<String>): String {
