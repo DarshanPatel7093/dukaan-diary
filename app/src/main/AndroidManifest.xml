@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" android:maxSdkVersion="22" />
 
     <uses-feature
         android:name="android.hardware.microphone"
@@ -18,6 +19,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <intent>
+            <action android:name="com.google.android.voicesearch.intent.action.OFFLINE_SETTINGS" />
+        </intent>
+        <package android:name="com.google.android.apps.docs" />
     </queries>
 
     <application

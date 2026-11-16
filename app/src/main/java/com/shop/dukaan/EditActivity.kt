@@ -117,6 +117,8 @@ class EditActivity : AppCompatActivity() {
                 } else {
                     toast("No speech detected. Please speak clearly.")
                 }
+            } else if (result.resultCode != Activity.RESULT_CANCELED) {
+                toast("Speech recognition failed. If offline, tap Language > Offline Voice Settings to download language.")
             }
         }
 
@@ -695,8 +697,29 @@ class EditActivity : AppCompatActivity() {
                 toast("Voice language set to: $label")
                 dialog.dismiss()
             }
+            .setNeutralButton("📥 Offline Voice Settings") { _, _ ->
+                openOfflineVoiceSettings()
+            }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun openOfflineVoiceSettings() {
+        try {
+            val intent = Intent("com.google.android.voicesearch.intent.action.OFFLINE_SETTINGS").apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+                toast("Open Phone Settings > Google > Voice to download offline languages.")
+            }
+        }
     }
 
     private fun startSpeechToText(target: TextInputEditText, prompt: String) {
@@ -720,7 +743,9 @@ class EditActivity : AppCompatActivity() {
             )
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            // Enable offline recognition on device
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra("android.speech.extra.PREFER_OFFLINE", true)
             val langDisplay = if (langCode == "auto") "Auto: ${deviceLocale.displayLanguage}" else getSavedLanguageLabel()
             putExtra(RecognizerIntent.EXTRA_PROMPT, "$prompt [$langDisplay]")
         }

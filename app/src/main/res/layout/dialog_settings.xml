@@ -91,40 +91,36 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="☁️ Google Drive Backup Setup"
+                    android:text="☁️ Google Drive Backup Account"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvSettingsDriveStatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Set a custom Drive Folder ID or label for your store's backups:"
+                    android:text="No Google Account connected (Tap button to select)"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSettingsSelectAccount"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Google Drive Folder / Account ID">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDriveFolderId"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:textSize="14sp" />
-                </com.google.android.material.textfield.TextInputLayout>
+                    android:layout_height="44dp"
+                    android:layout_marginTop="10dp"
+                    android:text="🔘  CHOOSE GOOGLE ACCOUNT"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="8dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="When backing up, Android allows you to select any folder or Google Drive directly via Google Cloud Storage."
-                    android:textColor="#64748B"
+                    android:layout_marginTop="8dp"
+                    android:text="All tasks, customer debts, and voice notes will be tied to this Google Account so your data remains safe when updating or reinstalling."
+                    android:textColor="@color/text_secondary"
                     android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

@@ -1,5 +1,6 @@
 package com.shop.dukaan
 
+import android.accounts.AccountManager
 import android.Manifest
 import android.app.Activity
 import android.app.DatePickerDialog
@@ -176,6 +177,51 @@ class MainActivity : AppCompatActivity() {
                 layoutLockOverlay.visibility = View.VISIBLE
             }
         }
+
+    private var onDriveAccountSelectedListener: ((String) -> Unit)? = null
+
+    private val chooseAccountLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                val accountName = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                if (!accountName.isNullOrBlank()) {
+                    saveGoogleDriveAccount(accountName)
+                    toast("✅ Google Drive account set: $accountName")
+                    updateLastBackupDisplay()
+                    onDriveAccountSelectedListener?.invoke(accountName)
+                }
+            }
+        }
+
+    private fun promptChooseGoogleAccount(onSelected: ((String) -> Unit)? = null) {
+        onDriveAccountSelectedListener = onSelected
+        try {
+            val intent = AccountManager.newChooseAccountIntent(
+                null,
+                null,
+                arrayOf("com.google"),
+                null,
+                null,
+                null,
+                null
+            )
+            chooseAccountLauncher.launch(intent)
+        } catch (_: Exception) {
+            toast("Could not open Google Account picker. Please make sure a Google account is logged in.")
+        }
+    }
+
+    private val KEY_GOOGLE_DRIVE_ACCOUNT = "google_drive_account"
+
+    private fun getGoogleDriveAccount(): String {
+        val sp = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+        return sp.getString(KEY_GOOGLE_DRIVE_ACCOUNT, "") ?: ""
+    }
+
+    private fun saveGoogleDriveAccount(account: String) {
+        val sp = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
+        sp.edit().putString(KEY_GOOGLE_DRIVE_ACCOUNT, account).apply()
+    }
 
     private val toggleLockAuthLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -901,7 +947,8 @@ class MainActivity : AppCompatActivity() {
         val rbSystem: RadioButton = v.findViewById(R.id.rbThemeSystem)
         val rbLight: RadioButton = v.findViewById(R.id.rbThemeLight)
         val rbDark: RadioButton = v.findViewById(R.id.rbThemeDark)
-        val etDriveFolder: TextInputEditText = v.findViewById(R.id.etDriveFolderId)
+        val tvSettingsDriveStatus: TextView = v.findViewById(R.id.tvSettingsDriveStatus)
+        val btnSettingsSelectAccount: MaterialButton = v.findViewById(R.id.btnSettingsSelectAccount)
         val btnTestNotif: MaterialButton = v.findViewById(R.id.btnTestNotification)
         val btnSaveSettings: MaterialButton = v.findViewById(R.id.btnSaveSettings)
 
@@ -911,7 +958,26 @@ class MainActivity : AppCompatActivity() {
             "dark" -> rbDark.isChecked = true
             else -> rbSystem.isChecked = true
         }
-        etDriveFolder.setText(sp.getString(KEY_DRIVE_FOLDER_ID, ""))
+
+        fun refreshSettingsDriveUi() {
+            val acc = getGoogleDriveAccount()
+            if (acc.isNotBlank()) {
+                tvSettingsDriveStatus.text = "✅ Connected Google Account:\n$acc"
+                tvSettingsDriveStatus.setTextColor(Color.parseColor("#16A34A"))
+                btnSettingsSelectAccount.text = "🔄 CHANGE GOOGLE ACCOUNT"
+            } else {
+                tvSettingsDriveStatus.text = "No Google Account connected (Tap button to select)"
+                tvSettingsDriveStatus.setTextColor(Color.parseColor("#64748B"))
+                btnSettingsSelectAccount.text = "🔘 CHOOSE GOOGLE ACCOUNT"
+            }
+        }
+        refreshSettingsDriveUi()
+
+        btnSettingsSelectAccount.setOnClickListener {
+            promptChooseGoogleAccount {
+                refreshSettingsDriveUi()
+            }
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setView(v)
@@ -928,11 +994,9 @@ class MainActivity : AppCompatActivity() {
                 rbDark.isChecked -> "dark"
                 else -> "system"
             }
-            val folderId = etDriveFolder.text.toString().trim()
 
             sp.edit()
                 .putString(KEY_THEME_MODE, selectedTheme)
-                .putString(KEY_DRIVE_FOLDER_ID, folderId)
                 .apply()
 
             applySavedTheme()
@@ -946,12 +1010,14 @@ class MainActivity : AppCompatActivity() {
     // ==================== BACKUP & SECURITY DIALOG ====================
 
     private fun updateLastBackupDisplay() {
+        val driveAccount = getGoogleDriveAccount()
         val lastTime = getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
             .getString(KEY_LAST_BACKUP_TIME, null)
-        if (lastTime != null) {
-            tvLastBackupStatus.text = "Last synced: $lastTime"
-        } else {
-            tvLastBackupStatus.text = "Tap to sync tasks to Google Drive"
+        tvLastBackupStatus.text = when {
+            lastTime != null && driveAccount.isNotBlank() -> "Drive ($driveAccount) • Synced: $lastTime"
+            lastTime != null -> "Last synced: $lastTime"
+            driveAccount.isNotBlank() -> "Drive: $driveAccount • Tap to backup"
+            else -> "Tap to backup tasks & connect Google Drive"
         }
     }
 
@@ -962,6 +1028,33 @@ class MainActivity : AppCompatActivity() {
         val btnRestoreBackup: MaterialButton = view.findViewById(R.id.btnRestoreBackup)
         val btnToggleAppLock: MaterialButton = view.findViewById(R.id.btnToggleAppLock)
         val tvLockStatus: TextView = view.findViewById(R.id.tvLockStatus)
+        val tvDriveAccountStatus: TextView = view.findViewById(R.id.tvDriveAccountStatus)
+        val btnSelectDriveAccount: MaterialButton = view.findViewById(R.id.btnSelectDriveAccount)
+
+        fun refreshBackupDriveUi() {
+            val acc = getGoogleDriveAccount()
+            if (acc.isNotBlank()) {
+                tvDriveAccountStatus.text = "✅ Connected: $acc"
+                tvDriveAccountStatus.setTextColor(Color.parseColor("#16A34A"))
+                btnSelectDriveAccount.text = "🔄 CHANGE ACCOUNT"
+            } else {
+                tvDriveAccountStatus.text = "No Google Account connected (Tap to select)"
+                tvDriveAccountStatus.setTextColor(Color.parseColor("#64748B"))
+                btnSelectDriveAccount.text = "🔘 CHOOSE GOOGLE ACCOUNT"
+            }
+        }
+        refreshBackupDriveUi()
+
+        btnSelectDriveAccount.setOnClickListener {
+            promptChooseGoogleAccount {
+                refreshBackupDriveUi()
+            }
+        }
+        view.findViewById<View>(R.id.cardGoogleDriveAccount)?.setOnClickListener {
+            promptChooseGoogleAccount {
+                refreshBackupDriveUi()
+            }
+        }
 
         val isLocked = isAppLockEnabled()
         tvLockStatus.text = if (isLocked) "App Lock is ACTIVE (Fingerprint / Face / PIN)" else "App Lock is DISABLED"
@@ -1003,10 +1096,15 @@ class MainActivity : AppCompatActivity() {
     private fun startBackupExport() {
         val file = BackupManager.createBackupArchive(this)
         tempBackupFileForExport = file
+        val driveAccount = getGoogleDriveAccount()
+        val prefix = if (driveAccount.isNotBlank()) "DukaanDiary_${driveAccount.substringBefore("@")}_" else "DukaanDiary_"
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val fileName = "${prefix}Backup_$timeStamp.dukaan"
+
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/octet-stream"
-            putExtra(Intent.EXTRA_TITLE, file.name)
+            putExtra(Intent.EXTRA_TITLE, fileName)
         }
         try {
             createDocumentLauncher.launch(intent)
@@ -1017,7 +1115,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareBackupDirectly() {
         val file = BackupManager.createBackupArchive(this)
-        BackupManager.shareBackupFile(this, file)
+        val driveAccount = getGoogleDriveAccount()
+        BackupManager.shareBackupFile(this, file, driveAccount)
     }
 
     private fun confirmRestore() {

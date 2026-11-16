@@ -107,14 +107,21 @@ object BackupManager {
     /**
      * Shares the backup file via Android's native share sheet (e.g. Save to Drive, WhatsApp).
      */
-    fun shareBackupFile(context: Context, backupFile: File) {
+    fun shareBackupFile(context: Context, backupFile: File, accountName: String = "") {
         val contentUri: Uri = getShareableUri(context, backupFile)
+
+        val subject = if (accountName.isNotBlank()) "Dukaan Diary Backup ($accountName)" else "Dukaan Diary Backup"
+        val body = if (accountName.isNotBlank()) {
+            "Dukaan Diary backup file for Google Account: $accountName\nSaved on: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US).format(Date())}"
+        } else {
+            "Here is the Dukaan Diary backup file."
+        }
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, contentUri)
-            putExtra(Intent.EXTRA_SUBJECT, "Dukaan Diary Backup")
-            putExtra(Intent.EXTRA_TEXT, "Here is the Dukaan Diary backup file.")
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, body)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
