@@ -128,7 +128,7 @@
                         android:insetBottom="0dp"
                         android:padding="0dp"
                         android:text="◀"
-                        android:textColor="#1E293B"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
@@ -149,7 +149,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="📅 Today"
-                            android:textColor="#0F172A"
+                            android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
@@ -158,7 +158,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Tap to change date ▾"
-                            android:textColor="#64748B"
+                            android:textColor="@color/text_secondary"
                             android:textSize="11sp" />
                     </LinearLayout>
 
@@ -171,7 +171,7 @@
                         android:insetBottom="0dp"
                         android:padding="0dp"
                         android:text="▶"
-                        android:textColor="#1E293B"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -260,7 +260,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="₹ 0"
-                                android:textColor="#0F172A"
+                                android:textColor="@color/text_primary"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
@@ -269,7 +269,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0 pending"
-                                android:textColor="#64748B"
+                                android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -310,7 +310,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="₹ 0"
-                                android:textColor="#0F172A"
+                                android:textColor="@color/text_primary"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
@@ -319,7 +319,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0 cheques/pay"
-                                android:textColor="#64748B"
+                                android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -359,7 +359,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="0"
-                                android:textColor="#0F172A"
+                                android:textColor="@color/text_primary"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
@@ -368,7 +368,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Visits"
-                                android:textColor="#64748B"
+                                android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -567,7 +567,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="📅 Reminders List"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
 
@@ -664,7 +664,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="Dukaan Diary is Locked"
-                android:textColor="#0F172A"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -674,7 +674,7 @@
                 android:layout_marginTop="8dp"
                 android:gravity="center"
                 android:text="Authenticate with Fingerprint, Face, or PIN to access your shop records"
-                android:textColor="#64748B"
+                android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
 
             <com.google.android.material.button.MaterialButton
@@ -771,7 +771,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="Dashboard &amp; Calendar"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -800,7 +800,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="To Collect (Customer Udhar)"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
 
@@ -828,7 +828,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="To Pay (Distributor / Cheques)"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
 
@@ -856,7 +856,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="Service Visits"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
 
@@ -865,7 +865,7 @@
                     android:layout_height="1dp"
                     android:layout_marginTop="8dp"
                     android:layout_marginBottom="8dp"
-                    android:background="#E2E8F0" />
+                    android:background="@color/divider_color" />
 
                 <!-- 5. Employees / Team Management -->
                 <LinearLayout
@@ -891,7 +891,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="Manage Employees"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
 
@@ -919,7 +919,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="Settings &amp; Theme"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
 
@@ -947,7 +947,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="14dp"
                         android:text="Backup &amp; Restore"
-                        android:textColor="#0F172A"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -962,8 +962,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="20dp"
-                android:text="Dukaan Diary v1.3\n100% Offline &amp; Secure"
-                android:textColor="#94A3B8"
+                android:text="Dukaan Diary v1.4\n100% Offline &amp; Secure"
+                android:textColor="@color/text_muted"
                 android:textSize="12sp" />
         </LinearLayout>
     </ScrollView>

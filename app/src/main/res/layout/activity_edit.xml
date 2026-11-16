@@ -24,7 +24,7 @@
             android:id="@+id/layoutVoiceLang"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#EFF6FF"
+            android:background="@color/card_bg"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackground"
@@ -40,8 +40,9 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="🎙️ Voice Language (Tap to change):"
-                android:textColor="#1E40AF"
-                android:textSize="13sp" />
+                android:textColor="@color/primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvVoiceLang"
@@ -52,7 +53,7 @@
                 android:paddingTop="5dp"
                 android:paddingEnd="10dp"
                 android:paddingBottom="5dp"
-                android:text="English (India) ▾"
+                android:text="🌟 Auto Detect ▾"
                 android:textColor="#92400E"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -182,10 +183,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:background="@android:color/white"
+                    android:background="@drawable/bg_badge_today"
                     android:padding="10dp"
                     android:text="👤 Unassigned (Tap to select) ▾"
-                    android:textColor="#1E293B"
+                    android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 

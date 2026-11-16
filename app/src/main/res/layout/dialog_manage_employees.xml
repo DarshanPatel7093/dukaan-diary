@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="👥 Service Team &amp; Technicians"
-        android:textColor="#0F172A"
+        android:textColor="@color/text_primary"
         android:textSize="18sp"
         android:textStyle="bold" />
 
@@ -19,7 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:text="Assign service visits to technicians and dispatch customer details via WhatsApp/SMS."
-        android:textColor="#64748B"
+        android:textColor="@color/text_secondary"
         android:textSize="13sp" />
 
     <androidx.recyclerview.widget.RecyclerView

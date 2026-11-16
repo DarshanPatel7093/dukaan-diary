@@ -15,7 +15,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🛡️ Backup &amp; App Security"
-            android:textColor="#0F172A"
+            android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -24,7 +24,7 @@
             android:layout_height="1dp"
             android:layout_marginTop="12dp"
             android:layout_marginBottom="12dp"
-            android:background="#E2E8F0" />
+            android:background="@color/divider_color" />
 
         <!-- Backup Section -->
         <TextView
@@ -119,7 +119,7 @@
             android:layout_height="48dp"
             android:layout_marginTop="10dp"
             android:text="🔒 TURN ON APP LOCK"
-            android:textColor="#0F172A"
+            android:textColor="@color/text_primary"
             android:textSize="13sp"
             android:textStyle="bold"
             app:cornerRadius="10dp"

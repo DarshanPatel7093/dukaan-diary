@@ -840,17 +840,15 @@ class MainActivity : AppCompatActivity() {
         val v = LayoutInflater.from(this).inflate(R.layout.dialog_add_employee, null)
         val etEmpName: TextInputEditText = v.findViewById(R.id.etEmpName)
         val etEmpPhone: TextInputEditText = v.findViewById(R.id.etEmpPhone)
-        val etEmpRole: TextInputEditText = v.findViewById(R.id.etEmpRole)
 
         AlertDialog.Builder(this)
-            .setTitle("➕ Add Service Employee / Technician")
+            .setTitle("➕ Add Employee")
             .setView(v)
             .setPositiveButton("SAVE") { _, _ ->
                 val name = etEmpName.text.toString().trim()
                 val phone = etEmpPhone.text.toString().trim()
-                val role = etEmpRole.text.toString().trim()
                 if (name.isNotEmpty() && phone.isNotEmpty()) {
-                    db.saveEmployee(Employee(name = name, phone = phone, role = role))
+                    db.saveEmployee(Employee(name = name, phone = phone, role = ""))
                     toast("Employee '$name' added!")
                     onAdded()
                 } else {

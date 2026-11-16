@@ -73,25 +73,29 @@ class EditActivity : AppCompatActivity() {
                     activeSpeechTarget?.let { target ->
                         when (target) {
                             etAmount -> {
-                                var num = ""
-                                for (cand in matches) {
-                                    val ext = extractNumber(cand)
-                                    if (ext.isNotEmpty()) {
-                                        num = ext
-                                        break
-                                    }
+                                val parsed = parseSpokenAmount(matches)
+                                if (parsed.isNotEmpty()) {
+                                    target.setText(parsed)
+                                    target.setSelection(parsed.length)
+                                    toast("✓ ₹ $parsed")
+                                } else {
+                                    toast("Could not detect amount from '${matches[0]}'")
                                 }
-                                if (num.isEmpty()) num = extractNumber(matches[0])
-                                target.setText(num)
                             }
                             etProduct -> {
-                                target.setText(cleanProductFromCandidates(matches))
+                                val prod = cleanProductFromCandidates(matches)
+                                target.setText(prod)
+                                target.setSelection(prod.length)
+                                toast("✓ $prod")
                             }
                             etName -> {
                                 handleNameSpeechResults(matches, target)
                             }
                             etAddress -> {
-                                target.setText(capitalizeWords(matches[0]))
+                                val addr = cleanSingleName(matches[0])
+                                target.setText(addr)
+                                target.setSelection(addr.length)
+                                toast("✓ $addr")
                             }
                             etNote -> {
                                 val text = matches[0].trim()
@@ -100,12 +104,15 @@ class EditActivity : AppCompatActivity() {
                                 } else {
                                     target.setText(text)
                                 }
+                                target.setSelection(target.text?.length ?: 0)
+                                toast("✓ Note updated")
                             }
                             else -> {
-                                target.setText(matches[0])
+                                val text = matches[0].trim()
+                                target.setText(text)
+                                target.setSelection(text.length)
                             }
                         }
-                        target.setSelection(target.text?.length ?: 0)
                     }
                 } else {
                     toast("No speech detected. Please speak clearly.")
@@ -161,7 +168,9 @@ class EditActivity : AppCompatActivity() {
 
         val tvTitle: TextView = findViewById(R.id.tvTitle)
         val tvVoiceLang: TextView = findViewById(R.id.tvVoiceLang)
-        tvVoiceLang.text = getSavedLanguageLabel() + " ▾"
+        val currentLangCode = getSavedLanguageCode()
+        val currentLangLabel = getSavedLanguageLabel()
+        tvVoiceLang.text = (if (currentLangCode == "auto") "🌟 Auto Detect" else currentLangLabel) + " ▾"
         tvVoiceLang.setOnClickListener { showLanguageDialog(tvVoiceLang) }
         findViewById<View>(R.id.layoutVoiceLang).setOnClickListener { showLanguageDialog(tvVoiceLang) }
         val tilName: TextInputLayout = findViewById(R.id.tilName)
@@ -474,22 +483,20 @@ class EditActivity : AppCompatActivity() {
         val v = LayoutInflater.from(this).inflate(R.layout.dialog_add_employee, null)
         val etEmpName: TextInputEditText = v.findViewById(R.id.etEmpName)
         val etEmpPhone: TextInputEditText = v.findViewById(R.id.etEmpPhone)
-        val etEmpRole: TextInputEditText = v.findViewById(R.id.etEmpRole)
 
         AlertDialog.Builder(this)
-            .setTitle("➕ Add Service Technician")
+            .setTitle("➕ Add Employee")
             .setView(v)
             .setPositiveButton("SAVE") { _, _ ->
                 val name = etEmpName.text.toString().trim()
                 val phone = etEmpPhone.text.toString().trim()
-                val role = etEmpRole.text.toString().trim()
                 if (name.isNotEmpty() && phone.isNotEmpty()) {
-                    val newId = db.saveEmployee(Employee(name = name, phone = phone, role = role))
+                    val newId = db.saveEmployee(Employee(name = name, phone = phone, role = ""))
                     lead.assignedEmployeeId = newId
                     lead.assignedEmployeeName = name
                     lead.assignedEmployeePhone = phone
                     updateAssignedEmployeeDisplay()
-                    toast("Technician '$name' added & assigned")
+                    toast("Employee '$name' added & assigned")
                 } else {
                     toast("Please enter both name and mobile number")
                 }
@@ -627,12 +634,12 @@ class EditActivity : AppCompatActivity() {
 
     private fun getSavedLanguageCode(): String {
         val sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return sp.getString(KEY_VOICE_LANG, "en-IN") ?: "en-IN"
+        return sp.getString(KEY_VOICE_LANG, "auto") ?: "auto"
     }
 
     private fun getSavedLanguageLabel(): String {
         val sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return sp.getString(KEY_VOICE_LANG_LABEL, "English (India)") ?: "English (India)"
+        return sp.getString(KEY_VOICE_LANG_LABEL, "🌟 Auto Detect (Phone Language)") ?: "🌟 Auto Detect (Phone Language)"
     }
 
     private fun saveLanguage(code: String, label: String) {
@@ -642,21 +649,25 @@ class EditActivity : AppCompatActivity() {
 
     private fun showLanguageDialog(tvTarget: TextView) {
         val languages = arrayOf(
-            "English (India)",
+            "🌟 Auto Detect (Phone Language)",
             "ગુજરાતી (Gujarati)",
             "हिंदी (Hindi)",
+            "English (India)",
             "English (US)"
         )
-        val codes = arrayOf("en-IN", "gu-IN", "hi-IN", "en-US")
+        val codes = arrayOf("auto", "gu-IN", "hi-IN", "en-IN", "en-US")
         val currentCode = getSavedLanguageCode()
         val currentIndex = codes.indexOf(currentCode).let { if (it >= 0) it else 0 }
 
         AlertDialog.Builder(this)
-            .setTitle("Voice Language")
+            .setTitle("Select Voice Language")
             .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
-                saveLanguage(codes[which], languages[which])
-                tvTarget.text = languages[which] + " ▾"
-                toast("Voice language set to " + languages[which])
+                val code = codes[which]
+                val label = languages[which]
+                saveLanguage(code, label)
+                val displayLabel = if (code == "auto") "🌟 Auto Detect" else label
+                tvTarget.text = "$displayLabel ▾"
+                toast("Voice language set to: $label")
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
@@ -666,16 +677,27 @@ class EditActivity : AppCompatActivity() {
     private fun startSpeechToText(target: TextInputEditText, prompt: String) {
         activeSpeechTarget = target
         val langCode = getSavedLanguageCode()
+        val deviceLocale = Locale.getDefault()
+        val effectiveLang = if (langCode == "auto") {
+            deviceLocale.toLanguageTag()
+        } else {
+            langCode
+        }
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
-            putStringArrayListExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayListOf("en-IN", "gu-IN", "hi-IN", "en-US"))
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, effectiveLang)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, effectiveLang)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+            putStringArrayListExtra(
+                "android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES",
+                arrayListOf("gu-IN", "hi-IN", "en-IN", "en-US")
+            )
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
+            val langDisplay = if (langCode == "auto") "Auto: ${deviceLocale.displayLanguage}" else getSavedLanguageLabel()
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "$prompt [$langDisplay]")
         }
         try {
             speechRecognizerLauncher.launch(intent)
@@ -686,78 +708,37 @@ class EditActivity : AppCompatActivity() {
 
     private fun handleNameSpeechResults(matches: List<String>, target: TextInputEditText) {
         val candidates = cleanNameCandidates(matches)
-        if (candidates.isEmpty()) {
-            val fallback = capitalizeWords(matches[0].trim())
-            target.setText(fallback)
-            target.setSelection(fallback.length)
-            return
-        }
+        val bestName = if (candidates.isNotEmpty()) candidates[0] else cleanSingleName(matches[0])
 
-        if (candidates.size == 1) {
-            val single = candidates[0]
-            target.setText(single)
-            target.setSelection(single.length)
+        if (bestName.isNotBlank()) {
+            target.setText(bestName)
+            target.setSelection(bestName.length)
+            toast("✓ $bestName")
         } else {
-            val items = candidates.toTypedArray()
-            AlertDialog.Builder(this)
-                .setTitle("Select Customer Name")
-                .setItems(items) { _, which ->
-                    val chosen = items[which]
-                    target.setText(chosen)
-                    target.setSelection(chosen.length)
-                }
-                .setNegativeButton("Cancel") { _, _ ->
-                    if (target.text.isNullOrBlank()) {
-                        target.setText(items[0])
-                        target.setSelection(items[0].length)
-                    }
-                }
-                .show()
+            toast("Could not recognize name. Tap 🎙️ and speak clearly.")
         }
     }
 
     private fun cleanNameCandidates(matches: List<String>): List<String> {
         val junkPhrases = setOf(
-            "ok see you", "see you", "i'll see you", "thank you", "hello",
-            "ok", "bye", "okay", "alright", "call you", "see ya", "see u", "ok see ya"
+            "ok", "okay", "bye", "hello", "hi", "hey", "alright", "thank you", "thanks"
         )
-
         val result = mutableListOf<String>()
-
-        for (cand in matches) {
-            val trimmed = cand.trim()
-            val lower = trimmed.lowercase(Locale.ENGLISH)
-
-            val mapped = when {
-                lower.contains("see you") || lower.contains("see ya") || lower.contains("see u") -> {
-                    if (lower.contains("darshan") || lower.contains("dark sun") || lower.contains("darsan") || lower.contains("ok see") || lower.contains("ok")) {
-                        "Darshan Vaghasiya"
-                    } else {
-                        null
-                    }
-                }
-                lower.contains("dark sun") -> {
-                    trimmed.replace("dark sun", "Darshan", ignoreCase = true)
-                }
-                junkPhrases.contains(lower) -> null
-                else -> capitalizeWords(trimmed)
-            }
-
-            if (!mapped.isNullOrBlank() && !result.contains(mapped)) {
-                result.add(mapped)
+        for (raw in matches) {
+            val cleaned = cleanSingleName(raw)
+            val lower = cleaned.lowercase(Locale.ROOT)
+            if (cleaned.isNotBlank() && !junkPhrases.contains(lower) && !result.contains(cleaned)) {
+                result.add(cleaned)
             }
         }
-
-        if (result.isEmpty() && matches.isNotEmpty()) {
-            val first = matches[0].lowercase(Locale.ENGLISH)
-            if (first.contains("see you") || first.contains("see ya")) {
-                result.add("Darshan Vaghasiya")
-            } else {
-                result.add(capitalizeWords(matches[0].trim()))
-            }
-        }
-
         return result
+    }
+
+    private fun cleanSingleName(raw: String): String {
+        val text = raw.trim().trimEnd('.', '?', '!', ',', ';', '-')
+        if (text.isBlank()) return ""
+        val hasLatin = text.any { it in 'a'..'z' || it in 'A'..'Z' }
+        return if (hasLatin) capitalizeWords(text) else text
     }
 
     private fun cleanProductFromCandidates(candidates: List<String>): String {
@@ -765,49 +746,216 @@ class EditActivity : AppCompatActivity() {
             val res = identifyProduct(raw)
             if (res != null) return res
         }
-        return capitalizeWords(candidates[0].trim())
+        val top = candidates[0].trim().trimEnd('.', '?', '!', ',', ';', '-')
+        val hasLatin = top.any { it in 'a'..'z' || it in 'A'..'Z' }
+        return if (hasLatin) capitalizeWords(top) else top
     }
 
     private fun identifyProduct(raw: String): String? {
         val trimmed = raw.trim()
-        val lower = trimmed.lowercase(Locale.ENGLISH)
+        val lower = trimmed.lowercase(Locale.ROOT)
 
         return when {
-            lower.contains("phrease") || lower.contains("phrase") || lower.contains("friedge") ||
-            lower.contains("frige") || lower.contains("fridge") || lower.contains("freez") || lower.contains("freeze") ||
-            lower.contains("frize") || lower.contains("frij") || lower.contains("friz") -> "Fridge"
+            // Fridge / Refrigerator
+            lower.contains("fridge") || lower.contains("frige") || lower.contains("friedge") ||
+            lower.contains("freez") || lower.contains("freeze") || lower.contains("frize") ||
+            lower.contains("frij") || lower.contains("refrigerator") ||
+            lower.contains("ફ્રિજ") || lower.contains("ફ્રીજ") || lower.contains("રેફ્રિજરેટર") ||
+            lower.contains("फ्रिज") || lower.contains("फ़्रिज") || lower.contains("रेफ्रिजरेटर") -> "Fridge"
 
-            lower.contains("washing") || lower.contains("vashing") || lower.contains("kapda") -> "Washing Machine"
-            lower.contains("geyser") || lower.contains("giser") || lower.contains("gizer") || lower.contains("geezer") -> "Geyser"
-            lower.contains("cooler") || lower.contains("kooler") -> "Cooler"
-            lower.contains("arrow") || lower.contains("ar o") || lower.contains("r o") || lower == "ro" || lower.contains("purifier") -> "RO Filter"
-            lower.contains("fan") || lower.contains("pankha") || lower.contains("pankho") -> "Fan"
-            lower.contains("ac") || lower.contains("a c") || lower.contains("air conditioner") -> "AC"
-            lower.contains("tv") || lower.contains("t v") || lower.contains("television") -> "TV"
-            lower.contains("microwave") || lower.contains("oven") -> "Microwave Oven"
-            lower.contains("inverter") || lower.contains("invertor") -> "Inverter"
-            lower.contains("motor") || lower.contains("pump") -> "Water Motor"
-            lower.contains("chimney") || lower.contains("chimni") -> "Chimney"
-            lower.contains("mobile") || lower.contains("phone") -> "Mobile Phone"
-            lower.contains("laptop") || lower.contains("computer") -> "Laptop"
+            // Washing Machine
+            lower.contains("washing") || lower.contains("vashing") || lower.contains("kapda") ||
+            lower.contains("વોશિંગ") || lower.contains("વોશિંગ મશીન") || lower.contains("વાશિંગ") ||
+            lower.contains("वाशिंग") || lower.contains("वॉशिंग") || lower.contains("कपड़े धोने") -> "Washing Machine"
+
+            // Geyser / Water Heater
+            lower.contains("geyser") || lower.contains("giser") || lower.contains("gizer") ||
+            lower.contains("geezer") || lower.contains("water heater") ||
+            lower.contains("ગીઝર") || lower.contains("ગીજર") || lower.contains("વોટર હીટર") ||
+            lower.contains("गीज़र") || lower.contains("गीजर") || lower.contains("गीसर") -> "Geyser"
+
+            // Cooler
+            lower.contains("cooler") || lower.contains("kooler") ||
+            lower.contains("કૂલર") || lower.contains("કુલર") || lower.contains("कूलर") -> "Cooler"
+
+            // RO Water Purifier
+            lower.contains("arrow") || lower.contains("ar o") || lower.contains("r o") || lower == "ro" ||
+            lower.contains("purifier") || lower.contains("water filter") ||
+            lower.contains("આરઓ") || lower.contains("આર.ઓ") || lower.contains("આર ઓ") ||
+            lower.contains("પ્યુરિફાયર") || lower.contains("વોટર પ્યુરીફાયર") ||
+            lower.contains("आरओ") || lower.contains("आर.ઓ") || lower.contains("आर ओ") ||
+            lower.contains("वाटर प्यूरीफायर") || lower.contains("प्यूरीफायर") -> "RO Filter"
+
+            // Fan
+            lower.contains("fan") || lower.contains("pankha") || lower.contains("pankho") ||
+            lower.contains("પંખો") || lower.contains("પંખા") || lower.contains("पंखा") -> "Fan"
+
+            // AC (Air Conditioner)
+            lower.contains("ac") || lower.contains("a c") || lower.contains("air conditioner") ||
+            lower.contains("એસી") || lower.contains("એ.સી") || lower.contains("એર કન્ડીશનર") ||
+            lower.contains("एसी") || lower.contains("एयर कंडीशनर") -> "AC"
+
+            // TV
+            lower.contains("tv") || lower.contains("t v") || lower.contains("television") ||
+            lower.contains("ટીવી") || lower.contains("ટી.વી") || lower.contains("ટેલિવિઝન") ||
+            lower.contains("टीवी") || lower.contains("टेलीविज़न") -> "TV"
+
+            // Microwave Oven
+            lower.contains("microwave") || lower.contains("oven") ||
+            lower.contains("માઇક્રોવેવ") || lower.contains("ઓવન") ||
+            lower.contains("माइक्रोवेव") || lower.contains("ओवन") -> "Microwave Oven"
+
+            // Inverter
+            lower.contains("inverter") || lower.contains("invertor") || lower.contains("ups") ||
+            lower.contains("ઇન્વર્ટર") || lower.contains("ઇન્વર્ટર બેટરી") ||
+            lower.contains("इन्वर्टर") -> "Inverter"
+
+            // Water Motor / Pump
+            lower.contains("motor") || lower.contains("pump") || lower.contains("tullu") ||
+            lower.contains("મોટર") || lower.contains("પમ્પ") ||
+            lower.contains("मोटर") || lower.contains("पंप") -> "Water Motor"
+
+            // Chimney
+            lower.contains("chimney") || lower.contains("chimni") ||
+            lower.contains("ચીમની") || lower.contains("चिमनी") -> "Kitchen Chimney"
+
+            // Mobile Phone
+            lower.contains("mobile") || lower.contains("phone") || lower.contains("smartphone") ||
+            lower.contains("મોબાઈલ") || lower.contains("ફોન") || lower.contains("मोबाइल") -> "Mobile Phone"
+
+            // Laptop
+            lower.contains("laptop") || lower.contains("computer") || lower.contains("pc") ||
+            lower.contains("લેપટોપ") || lower.contains("કોમ્પ્યુટર") || lower.contains("लैपटॉप") -> "Laptop"
+
+            // Bank Cheque (for To Pay)
+            lower.contains("cheque") || lower.contains("check") || lower.contains("bank cheque") ||
+            lower.contains("ચેક") || lower.contains("બેંક ચેક") ||
+            lower.contains("चेक") || lower.contains("बैंक चेक") -> "Bank Cheque"
+
+            // Cash
+            lower.contains("cash") || lower.contains("rokad") ||
+            lower.contains("રોકડ") || lower.contains("रोकड़") || lower.contains("नकद") -> "Cash Payment"
+
+            // UPI / Online
+            lower.contains("upi") || lower.contains("gpay") || lower.contains("phonepe") ||
+            lower.contains("paytm") || lower.contains("online") ||
+            lower.contains("યુપીઆઈ") || lower.contains("ઓનલાઇન") ||
+            lower.contains("यूपीआई") || lower.contains("ऑनलाइन") -> "UPI / Online"
+
             else -> null
         }
+    }
+
+    private fun normalizeIndicDigits(text: String): String {
+        val sb = StringBuilder()
+        for (ch in text) {
+            when (ch) {
+                in '૦'..'૯' -> sb.append((ch - '૦' + '0'.code).toChar())
+                in '०'..'९' -> sb.append((ch - '०' + '0'.code).toChar())
+                in '٠'..'٩' -> sb.append((ch - '٠' + '0'.code).toChar())
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun parseSpokenAmount(matches: List<String>): String {
+        for (raw in matches) {
+            val converted = parseSingleSpokenAmount(raw)
+            if (converted.isNotEmpty()) return converted
+        }
+        return ""
+    }
+
+    private fun parseSingleSpokenAmount(raw: String): String {
+        var text = normalizeIndicDigits(raw).lowercase(Locale.ROOT).trim()
+
+        text = text.replace("₹", "")
+            .replace("rs.", "")
+            .replace("rs", "")
+            .replace("rupees", "")
+            .replace("rupee", "")
+            .replace("rupaye", "")
+            .replace("rupya", "")
+            .replace("રૂપિયા", "")
+            .replace("રૂપિયો", "")
+            .replace("रुपये", "")
+            .replace("रुपया", "")
+            .replace(",", "")
+            .trim()
+
+        val compoundWords = mapOf(
+            "પાંચસો" to 500.0, "બસો" to 200.0, "ત્રણસો" to 300.0, "ચારસો" to 400.0,
+            "છસો" to 600.0, "સાતસો" to 700.0, "આઠસો" to 800.0, "નવસો" to 900.0,
+            "દોઢસો" to 150.0, "અઢીસો" to 250.0
+        )
+        for ((k, v) in compoundWords) {
+            if (text.contains(k)) return trimZero(v)
+        }
+
+        val thousandRegex = Regex("""(\d+(\.\d+)?)\s*(thousand|hazar|hazaar|हजार|हज़ार|હજાર|k)\b""", RegexOption.IGNORE_CASE)
+        thousandRegex.find(text)?.let { m ->
+            val num = m.groupValues[1].toDoubleOrNull()
+            if (num != null) return trimZero(num * 1000.0)
+        }
+
+        val hundredRegex = Regex("""(\d+(\.\d+)?)\s*(hundred|sau|सौ|સો)\b""", RegexOption.IGNORE_CASE)
+        hundredRegex.find(text)?.let { m ->
+            val num = m.groupValues[1].toDoubleOrNull()
+            if (num != null) return trimZero(num * 100.0)
+        }
+
+        val lakhRegex = Regex("""(\d+(\.\d+)?)\s*(lakh|lac|लाख|લાખ)\b""", RegexOption.IGNORE_CASE)
+        lakhRegex.find(text)?.let { m ->
+            val num = m.groupValues[1].toDoubleOrNull()
+            if (num != null) return trimZero(num * 100000.0)
+        }
+
+        val wordToNum = mapOf(
+            "one" to 1.0, "two" to 2.0, "three" to 3.0, "four" to 4.0, "five" to 5.0,
+            "six" to 6.0, "seven" to 7.0, "eight" to 8.0, "nine" to 9.0, "ten" to 10.0,
+            "eleven" to 11.0, "twelve" to 12.0, "fifteen" to 15.0, "twenty" to 20.0,
+            "twenty five" to 25.0, "thirty" to 30.0, "forty" to 40.0, "fifty" to 50.0,
+            // Gujarati
+            "એક" to 1.0, "બે" to 2.0, "ત્રણ" to 3.0, "ચાર" to 4.0, "પાંચ" to 5.0,
+            "છ" to 6.0, "સાત" to 7.0, "આઠ" to 8.0, "નવ" to 9.0, "દસ" to 10.0,
+            "પંદર" to 15.0, "વીસ" to 20.0, "પચીસ" to 25.0, "ત્રીસ" to 30.0, "ચાલીસ" to 40.0, "પચાસ" to 50.0,
+            // Hindi
+            "एक" to 1.0, "दो" to 2.0, "तीन" to 3.0, "चार" to 4.0, "पांच" to 5.0, "पाँच" to 5.0,
+            "छह" to 6.0, "सात" to 7.0, "आठ" to 8.0, "नौ" to 9.0, "दस" to 10.0,
+            "पंद्रह" to 15.0, "बीस" to 20.0, "पच्चीस" to 25.0, "तीस" to 30.0, "चालीस" to 40.0, "पचास" to 50.0
+        )
+        for ((word, base) in wordToNum) {
+            if (text.contains(word)) {
+                if (text.contains("thousand") || text.contains("hazar") || text.contains("hazaar") || text.contains("હજાર") || text.contains("हजार") || text.contains("हज़ार")) {
+                    return trimZero(base * 1000.0)
+                }
+                if (text.contains("hundred") || text.contains("sau") || text.contains("સો") || text.contains("सौ")) {
+                    return trimZero(base * 100.0)
+                }
+                if (text.contains("lakh") || text.contains("lac") || text.contains("લાખ") || text.contains("लाख")) {
+                    return trimZero(base * 100000.0)
+                }
+            }
+        }
+
+        val pureMatch = Regex("""\b\d+(\.\d+)?\b""").find(text)
+        if (pureMatch != null) {
+            return pureMatch.value
+        }
+
+        val anyDigits = text.filter { it.isDigit() || it == '.' }
+        if (anyDigits.isNotEmpty() && anyDigits != ".") {
+            return anyDigits
+        }
+
+        return ""
     }
 
     private fun capitalizeWords(text: String): String {
         return text.split(" ").filter { it.isNotBlank() }.joinToString(" ") { word ->
             word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
-    }
-
-    private fun extractNumber(text: String): String {
-        val cleaned = text.replace(",", "")
-            .replace("₹", "")
-            .replace("Rs.", "", ignoreCase = true)
-            .replace("Rs", "", ignoreCase = true)
-            .trim()
-        val match = Regex("""\d+(\.\d+)?""").find(cleaned)
-        return match?.value ?: cleaned.filter { it.isDigit() || it == '.' }
     }
 
     private fun trimZero(d: Double): String =
