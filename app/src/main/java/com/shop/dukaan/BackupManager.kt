@@ -97,11 +97,18 @@ object BackupManager {
     }
 
     /**
+     * Returns a shareable content Uri for the backup file using FileProvider.
+     */
+    fun getShareableUri(context: Context, backupFile: File): Uri {
+        val authority = "${context.packageName}.fileprovider"
+        return FileProvider.getUriForFile(context, authority, backupFile)
+    }
+
+    /**
      * Shares the backup file via Android's native share sheet (e.g. Save to Drive, WhatsApp).
      */
     fun shareBackupFile(context: Context, backupFile: File) {
-        val authority = "${context.packageName}.fileprovider"
-        val contentUri: Uri = FileProvider.getUriForFile(context, authority, backupFile)
+        val contentUri: Uri = getShareableUri(context, backupFile)
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"

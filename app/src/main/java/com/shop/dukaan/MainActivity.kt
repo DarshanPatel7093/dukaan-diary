@@ -994,14 +994,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareBackupDirectly() {
         val file = BackupManager.createBackupArchive(this)
-        val uri = BackupManager.getShareableUri(this, file)
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/octet-stream"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Dukaan Diary Backup (${file.name})")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(shareIntent, "Save or Share Dukaan Backup (Drive / WhatsApp)"))
+        BackupManager.shareBackupFile(this, file)
     }
 
     private fun confirmRestore() {
