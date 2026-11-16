@@ -44,7 +44,7 @@
             android:textSize="13sp" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBackupSaveDrive"
+            android:id="@+id/btnSaveBackup"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_marginTop="12dp"
@@ -54,7 +54,7 @@
             app:cornerRadius="10dp" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBackupShare"
+            android:id="@+id/btnShareBackup"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -66,7 +66,7 @@
             app:strokeColor="#BFDBFE" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBackupRestore"
+            android:id="@+id/btnRestoreBackup"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -95,40 +95,43 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/tvLockStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Protect your shop's accounts from other people holding your phone."
+            android:text="App Lock is DISABLED"
             android:textColor="#64748B"
-            android:textSize="13sp" />
-
-        <CheckBox
-            android:id="@+id/cbAppLock"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Lock App with Fingerprint / PIN"
-            android:textColor="#0F172A"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvLockStatusHint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
-            android:text="Requires device screen lock to open the app"
+            android:layout_marginTop="2dp"
+            android:text="Protect your shop's accounts from other people using your phone with Fingerprint, Face, or PIN."
             android:textColor="#64748B"
             android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnToggleAppLock"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:text="🔒 TURN ON APP LOCK"
+            android:textColor="#0F172A"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:cornerRadius="10dp"
+            app:strokeColor="#CBD5E1" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCloseDialog"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="match_parent"
             android:layout_height="46dp"
-            android:layout_marginTop="16dp"
-            android:text="DONE"
+            android:layout_marginTop="14dp"
+            android:text="CLOSE"
             android:textSize="14sp" />
     </LinearLayout>
 </ScrollView>
-

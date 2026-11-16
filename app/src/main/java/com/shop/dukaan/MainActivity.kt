@@ -970,6 +970,10 @@ class MainActivity : AppCompatActivity() {
             toggleAppLock()
         }
 
+        view.findViewById<View>(R.id.btnCloseDialog)?.setOnClickListener {
+            dialog.dismiss()
+        }
+
         dialog.show()
     }
 
