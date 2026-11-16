@@ -695,23 +695,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val dateStr = shortDateFmt.format(Date(l.dateMillis))
-        val text = when (l.type) {
-            TYPE_PAYMENT -> {
-                "Hello ${l.name},\nGentle reminder from Dukaan Diary regarding pending payment of ₹${moneyFmt.format(l.amount)}" +
-                    (if (l.product.isNotBlank()) " for ${l.product}" else "") +
-                    " due on $dateStr. Thank you!"
-            }
-            TYPE_PAYMENT_PAY -> {
-                "Hello ${l.name},\nPayment of ₹${moneyFmt.format(l.amount)}" +
-                    (if (l.product.isNotBlank()) " (${l.product})" else "") +
-                    " is scheduled for $dateStr. Thank you!"
-            }
-            else -> {
-                "Hello ${l.name},\nReminder regarding service visit for ${l.product} scheduled on $dateStr. Thank you!"
-            }
-        }
-
+        val text = MessageHelper.formatReminderMessage(this, l)
         showMessageChooser(phone, text, l.name)
     }
 
@@ -719,15 +703,15 @@ class MainActivity : AppCompatActivity() {
         val empPhone = l.assignedEmployeePhone.trim()
         val dateStr = dateDisplayFmt.format(Date(l.dateMillis))
 
-        val msg = StringBuilder().apply {
-            append("🔧 *Service Visit Assignment [Dukaan Diary]*\n")
-            append("👤 Customer: ${l.name}\n")
-            if (l.phone.isNotBlank()) append("📞 Customer Mobile: ${l.phone}\n")
-            if (l.address.isNotBlank()) append("📍 Location / Address: ${l.address}\n")
-            if (l.product.isNotBlank()) append("🛠️ Appliance / Product: ${l.product}\n")
-            append("📅 Scheduled Date: $dateStr\n")
-            if (l.note.isNotBlank()) append("📝 Notes: ${l.note}\n")
-        }.toString()
+        val msg = MessageHelper.formatServiceDispatchMessage(
+            context = this,
+            customerName = l.name,
+            customerPhone = l.phone,
+            address = l.address,
+            product = l.product,
+            dateStr = dateStr,
+            notes = l.note
+        )
 
         showMessageChooser(empPhone, msg, l.assignedEmployeeName.ifBlank { "Technician" })
     }
@@ -880,7 +864,8 @@ class MainActivity : AppCompatActivity() {
                         startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + emp.phone)))
                     }
                     btnMsg.setOnClickListener {
-                        showMessageChooser(emp.phone, "Hello ${emp.name}, message from Dukaan Diary.", emp.name)
+                        val greeting = MessageHelper.formatEmployeeGreeting(this@MainActivity, emp.name)
+                        showMessageChooser(emp.phone, greeting, emp.name)
                     }
                     btnDel.setOnClickListener {
                         AlertDialog.Builder(this@MainActivity)
@@ -947,6 +932,12 @@ class MainActivity : AppCompatActivity() {
         val rbSystem: RadioButton = v.findViewById(R.id.rbThemeSystem)
         val rbLight: RadioButton = v.findViewById(R.id.rbThemeLight)
         val rbDark: RadioButton = v.findViewById(R.id.rbThemeDark)
+
+        val rgMsgLang: RadioGroup = v.findViewById(R.id.rgMessageLanguage)
+        val rbMsgLangEn: RadioButton = v.findViewById(R.id.rbMsgLangEn)
+        val rbMsgLangGu: RadioButton = v.findViewById(R.id.rbMsgLangGu)
+        val rbMsgLangHi: RadioButton = v.findViewById(R.id.rbMsgLangHi)
+
         val tvSettingsDriveStatus: TextView = v.findViewById(R.id.tvSettingsDriveStatus)
         val btnSettingsSelectAccount: MaterialButton = v.findViewById(R.id.btnSettingsSelectAccount)
         val btnTestNotif: MaterialButton = v.findViewById(R.id.btnTestNotification)
@@ -957,6 +948,12 @@ class MainActivity : AppCompatActivity() {
             "light" -> rbLight.isChecked = true
             "dark" -> rbDark.isChecked = true
             else -> rbSystem.isChecked = true
+        }
+
+        when (MessageHelper.getMessageLanguage(this)) {
+            MessageHelper.LANG_GU -> rbMsgLangGu.isChecked = true
+            MessageHelper.LANG_HI -> rbMsgLangHi.isChecked = true
+            else -> rbMsgLangEn.isChecked = true
         }
 
         fun refreshSettingsDriveUi() {
@@ -995,9 +992,17 @@ class MainActivity : AppCompatActivity() {
                 else -> "system"
             }
 
+            val selectedLang = when {
+                rbMsgLangGu.isChecked -> MessageHelper.LANG_GU
+                rbMsgLangHi.isChecked -> MessageHelper.LANG_HI
+                else -> MessageHelper.LANG_EN
+            }
+
             sp.edit()
                 .putString(KEY_THEME_MODE, selectedTheme)
                 .apply()
+
+            MessageHelper.setMessageLanguage(this, selectedLang)
 
             applySavedTheme()
             toast("Settings saved successfully!")

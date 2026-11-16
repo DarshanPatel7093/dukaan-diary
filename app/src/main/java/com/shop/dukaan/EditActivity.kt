@@ -521,15 +521,15 @@ class EditActivity : AppCompatActivity() {
         val note = etNote.text.toString().trim()
         val dateStr = tvDate.text.toString()
 
-        val msg = StringBuilder().apply {
-            append("🔧 *Service Visit Assignment [Dukaan Diary]*\n")
-            if (custName.isNotEmpty()) append("👤 Customer: $custName\n")
-            if (custPhone.isNotEmpty()) append("📞 Customer Mobile: $custPhone\n")
-            if (address.isNotEmpty()) append("📍 Location / Address: $address\n")
-            if (product.isNotEmpty()) append("🛠️ Appliance / Product: $product\n")
-            append("📅 Scheduled Date: $dateStr\n")
-            if (note.isNotEmpty()) append("📝 Notes: $note\n")
-        }.toString()
+        val msg = MessageHelper.formatServiceDispatchMessage(
+            context = this,
+            customerName = custName,
+            customerPhone = custPhone,
+            address = address,
+            product = product,
+            dateStr = dateStr,
+            notes = note
+        )
 
         showMessageChooser(empPhone, msg, lead.assignedEmployeeName.ifBlank { "Employee" })
     }
