@@ -666,7 +666,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        openWhatsAppOrSms(phone, text)
+        showMessageChooser(phone, text, l.name)
     }
 
     private fun sendServiceDispatchToEmployee(l: Lead) {
@@ -683,28 +683,53 @@ class MainActivity : AppCompatActivity() {
             if (l.note.isNotBlank()) append("📝 Notes: ${l.note}\n")
         }.toString()
 
-        openWhatsAppOrSms(empPhone, msg)
+        showMessageChooser(empPhone, msg, l.assignedEmployeeName.ifBlank { "Technician" })
     }
 
-    private fun openWhatsAppOrSms(phone: String, text: String) {
+    private fun showMessageChooser(phone: String, text: String, recipientName: String = "") {
         val cleanPhone = phone.replace("+", "").replace(" ", "").replace("-", "")
-        val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
-        try {
-            val waIntent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=" + Uri.encode(text))
-            }
-            startActivity(waIntent)
-        } catch (_: Exception) {
-            try {
-                val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
-                    data = Uri.parse("smsto:$cleanPhone")
-                    putExtra("sms_body", text)
-                }
-                startActivity(smsIntent)
-            } catch (_: Exception) {
-                toast("Could not open WhatsApp or SMS app")
-            }
+        if (cleanPhone.isEmpty()) {
+            toast("No valid phone number")
+            return
         }
+        val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
+
+        val options = arrayOf(
+            "🟢 WhatsApp Message",
+            "💬 Text Message (SMS)"
+        )
+
+        val title = if (recipientName.isNotBlank()) "Send Message to $recipientName" else "Choose Message Option"
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        try {
+                            val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=" + Uri.encode(text))
+                            }
+                            startActivity(waIntent)
+                        } catch (_: Exception) {
+                            toast("WhatsApp is not installed on this device")
+                        }
+                    }
+                    1 -> {
+                        try {
+                            val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("smsto:$cleanPhone")
+                                putExtra("sms_body", text)
+                            }
+                            startActivity(smsIntent)
+                        } catch (_: Exception) {
+                            toast("Could not open SMS app")
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // ==================== AUDIO PLAYBACK ====================
@@ -809,7 +834,7 @@ class MainActivity : AppCompatActivity() {
                         startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + emp.phone)))
                     }
                     btnMsg.setOnClickListener {
-                        openWhatsAppOrSms(emp.phone, "Hello ${emp.name}, message from Dukaan Diary.")
+                        showMessageChooser(emp.phone, "Hello ${emp.name}, message from Dukaan Diary.", emp.name)
                     }
                     btnDel.setOnClickListener {
                         AlertDialog.Builder(this@MainActivity)

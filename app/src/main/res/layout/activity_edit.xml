@@ -198,7 +198,7 @@
                     android:layout_marginTop="8dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:text="📲 Send Details to Employee (WhatsApp)"
+                    android:text="📲 Send Details to Employee (WhatsApp / SMS)"
                     android:textColor="#059669"
                     android:textSize="13sp"
                     android:textStyle="bold"
