@@ -29,6 +29,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
+import androidx.core.widget.NestedScrollView
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -87,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chipFilterServices: Chip
 
     // General UI
+    private lateinit var scrollMainContent: NestedScrollView
     private lateinit var tvHeaderDate: TextView
     private lateinit var tvSummary: TextView
     private lateinit var tvEmpty: TextView
@@ -292,10 +294,12 @@ class MainActivity : AppCompatActivity() {
         btnQuickRestoreDrive.setOnClickListener { confirmRestore() }
         updateLastBackupDisplay()
 
+        scrollMainContent = findViewById(R.id.scrollMainContent)
         tvSummary = findViewById(R.id.tvSummary)
         tvEmpty = findViewById(R.id.tvEmpty)
         cbShowDone = findViewById(R.id.cbShowDone)
         val recycler: RecyclerView = findViewById(R.id.recycler)
+        recycler.isNestedScrollingEnabled = false
         btnAdd = findViewById(R.id.btnAdd)
 
         layoutLockOverlay = findViewById(R.id.layoutLockOverlay)
@@ -559,6 +563,7 @@ class MainActivity : AppCompatActivity() {
         val isDashboard = currentTabPosition == 0
         layoutDashboard.visibility = if (isDashboard) View.VISIBLE else View.GONE
         tvSummary.visibility = if (isDashboard) View.GONE else View.VISIBLE
+        scrollMainContent.scrollTo(0, 0)
 
         when (currentTabPosition) {
             0 -> btnAdd.text = "+  ADD NEW REMINDER"
@@ -639,17 +644,17 @@ class MainActivity : AppCompatActivity() {
         if (currentTabPosition == 1) {
             val total = pending.sumOf { it.amount }
             tvSummary.text = "💰 ${pending.size} customers owe you: ₹ " + moneyFmt.format(total)
-            tvSummary.setTextColor(Color.parseColor("#1565C0"))
-            tvSummary.setBackgroundColor(Color.parseColor("#E3F2FD"))
+            tvSummary.setTextColor(ContextCompat.getColor(this, R.color.summary_collect_text))
+            tvSummary.setBackgroundColor(ContextCompat.getColor(this, R.color.summary_collect_bg))
         } else if (currentTabPosition == 2) {
             val total = pending.sumOf { it.amount }
             tvSummary.text = "📤 ${pending.size} payments to pay distributors: ₹ " + moneyFmt.format(total)
-            tvSummary.setTextColor(Color.parseColor("#C2410C"))
-            tvSummary.setBackgroundColor(Color.parseColor("#FFEDD5"))
+            tvSummary.setTextColor(ContextCompat.getColor(this, R.color.summary_topay_text))
+            tvSummary.setBackgroundColor(ContextCompat.getColor(this, R.color.summary_topay_bg))
         } else {
             tvSummary.text = "🔧 ${pending.size} service visits pending"
-            tvSummary.setTextColor(Color.parseColor("#512DA8"))
-            tvSummary.setBackgroundColor(Color.parseColor("#EDE7F6"))
+            tvSummary.setTextColor(ContextCompat.getColor(this, R.color.summary_service_text))
+            tvSummary.setBackgroundColor(ContextCompat.getColor(this, R.color.summary_service_bg))
         }
 
         tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE

@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import java.text.NumberFormat
@@ -69,20 +70,21 @@ class LeadAdapter(
         val isService = l.type == TYPE_SERVICE
 
         // Type Badge
+        val ctx = h.itemView.context
         when {
             isToCollect -> {
                 h.typeBadge.text = "💰 TO COLLECT"
-                h.typeBadge.setTextColor(Color.parseColor("#1565C0"))
+                h.typeBadge.setTextColor(ContextCompat.getColor(ctx, R.color.badge_payment_text))
                 h.typeBadge.setBackgroundResource(R.drawable.bg_badge_payment)
             }
             isToPay -> {
                 h.typeBadge.text = "📤 TO PAY"
-                h.typeBadge.setTextColor(Color.parseColor("#C2410C"))
+                h.typeBadge.setTextColor(ContextCompat.getColor(ctx, R.color.badge_to_pay_text))
                 h.typeBadge.setBackgroundResource(R.drawable.bg_badge_to_pay)
             }
             else -> {
                 h.typeBadge.text = "🔧 SERVICE"
-                h.typeBadge.setTextColor(Color.parseColor("#512DA8"))
+                h.typeBadge.setTextColor(ContextCompat.getColor(ctx, R.color.badge_service_text))
                 h.typeBadge.setBackgroundResource(R.drawable.bg_badge_service)
             }
         }
@@ -94,10 +96,10 @@ class LeadAdapter(
         if ((isToCollect || isToPay) && l.amount > 0) {
             h.amount.visibility = View.VISIBLE
             if (isToCollect) {
-                h.amount.setTextColor(Color.parseColor("#16A34A"))
+                h.amount.setTextColor(ContextCompat.getColor(ctx, R.color.green))
                 h.amount.text = "₹ " + moneyFmt.format(l.amount) + " pending"
             } else {
-                h.amount.setTextColor(Color.parseColor("#EA580C"))
+                h.amount.setTextColor(ContextCompat.getColor(ctx, R.color.orange))
                 h.amount.text = "₹ " + moneyFmt.format(l.amount) + " to pay"
             }
         } else {
@@ -163,15 +165,15 @@ class LeadAdapter(
 
         // Status Badge
         val days = ((l.dateMillis - startOfDay()) / 86_400_000L).toInt()
-        val (label, textColor, bgRes) = when {
-            l.done -> Triple("DONE", "#64748B", R.drawable.bg_badge_done)
-            days < 0 -> Triple("OVERDUE ${-days}d", "#DC2626", R.drawable.bg_badge_overdue)
-            days == 0 -> Triple("TODAY", "#D97706", R.drawable.bg_badge_today)
-            days == 1 -> Triple("TOMORROW", "#2563EB", R.drawable.bg_badge_tomorrow)
-            else -> Triple("In $days days", "#16A34A", R.drawable.bg_badge_today)
+        val (label, textColorRes, bgRes) = when {
+            l.done -> Triple("DONE", R.color.badge_done_text, R.drawable.bg_badge_done)
+            days < 0 -> Triple("OVERDUE ${-days}d", R.color.badge_overdue_text, R.drawable.bg_badge_overdue)
+            days == 0 -> Triple("TODAY", R.color.badge_today_text, R.drawable.bg_badge_today)
+            days == 1 -> Triple("TOMORROW", R.color.badge_tomorrow_text, R.drawable.bg_badge_tomorrow)
+            else -> Triple("In $days days", R.color.badge_today_text, R.drawable.bg_badge_today)
         }
         h.status.text = label
-        h.status.setTextColor(Color.parseColor(textColor))
+        h.status.setTextColor(ContextCompat.getColor(ctx, textColorRes))
         h.status.setBackgroundResource(bgRes)
 
         // Action Buttons

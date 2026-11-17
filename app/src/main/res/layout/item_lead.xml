@@ -10,7 +10,7 @@
     app:cardBackgroundColor="@color/card_bg"
     app:cardCornerRadius="16dp"
     app:cardElevation="2dp"
-    app:strokeColor="#E2E8F0"
+    app:strokeColor="@color/divider_color"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -76,7 +76,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#334155"
+            android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
         <!-- Address (For Service Visits) -->
@@ -85,7 +85,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="#475569"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <!-- Assigned Employee (For Service Visits) -->
@@ -94,12 +94,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:background="#EDE9FE"
+            android:background="@drawable/bg_badge_service"
             android:paddingStart="8dp"
             android:paddingTop="2dp"
             android:paddingEnd="8dp"
             android:paddingBottom="2dp"
-            android:textColor="#5B21B6"
+            android:textColor="@color/badge_service_text"
             android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -110,7 +110,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#64748B"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <!-- Text Note -->
@@ -121,7 +121,7 @@
             android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:maxLines="2"
-            android:textColor="#64748B"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <!-- Direct Audio Player Row -->
@@ -143,6 +143,7 @@
                 android:id="@+id/ivAudioIcon"
                 android:layout_width="22dp"
                 android:layout_height="22dp"
+                app:tint="@color/voice_note_text"
                 android:src="@drawable/ic_volume_up" />
 
             <TextView
@@ -152,7 +153,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="Voice note attached"
-                android:textColor="#065F46"
+                android:textColor="@color/voice_note_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -191,11 +192,11 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:text="📞 CALL"
-                android:textColor="#2563EB"
+                android:textColor="@color/blue"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 app:cornerRadius="8dp"
-                app:strokeColor="#BFDBFE" />
+                app:strokeColor="@color/btn_stroke_blue" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnMessage"
@@ -209,11 +210,11 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:text="💬 MSG"
-                android:textColor="#0284C7"
+                android:textColor="@color/primary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 app:cornerRadius="8dp"
-                app:strokeColor="#BAE6FD" />
+                app:strokeColor="@color/btn_stroke_cyan" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDone"
@@ -227,11 +228,11 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:text="✓ DONE"
-                android:textColor="#16A34A"
+                android:textColor="@color/green"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 app:cornerRadius="8dp"
-                app:strokeColor="#BBF7D0" />
+                app:strokeColor="@color/btn_stroke_green" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDelete"
@@ -244,10 +245,10 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:text="🗑️"
-                android:textColor="#DC2626"
+                android:textColor="@color/red"
                 android:textSize="14sp"
                 app:cornerRadius="8dp"
-                app:strokeColor="#FECACA" />
+                app:strokeColor="@color/btn_stroke_red" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

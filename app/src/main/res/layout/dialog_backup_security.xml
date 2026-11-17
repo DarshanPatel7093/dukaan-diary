@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="☁️ GOOGLE DRIVE &amp; STORAGE BACKUP"
-            android:textColor="#1D4ED8"
+            android:textColor="@color/primary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Save all payments, service visits, customer records, and voice recordings so you never lose data when updating or reinstalling."
-            android:textColor="#64748B"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <!-- Google Account Picker Card -->
@@ -54,7 +54,7 @@
             app:cardBackgroundColor="@color/card_bg"
             app:cardCornerRadius="10dp"
             app:cardElevation="0dp"
-            app:strokeColor="#CBD5E1"
+            app:strokeColor="@color/divider_color"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -114,10 +114,10 @@
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
             android:text="📤  Share Backup (Drive / WhatsApp)"
-            android:textColor="#2563EB"
+            android:textColor="@color/primary"
             android:textSize="13sp"
             app:cornerRadius="10dp"
-            app:strokeColor="#BFDBFE" />
+            app:strokeColor="@color/btn_stroke_blue" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnRestoreBackup"
@@ -126,25 +126,25 @@
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
             android:text="📥  Restore from Google Drive / Phone"
-            android:textColor="#16A34A"
+            android:textColor="@color/green"
             android:textSize="13sp"
             android:textStyle="bold"
             app:cornerRadius="10dp"
-            app:strokeColor="#BBF7D0" />
+            app:strokeColor="@color/btn_stroke_green" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="12dp"
-            android:background="#E2E8F0" />
+            android:background="@color/divider_color" />
 
         <!-- Security Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🔒 APP SECURITY &amp; PRIVACY"
-            android:textColor="#B91C1C"
+            android:textColor="@color/red"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -154,7 +154,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="App Lock is DISABLED"
-            android:textColor="#64748B"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:textStyle="bold" />
 
@@ -163,7 +163,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:text="Protect your shop's accounts from other people using your phone with Fingerprint, Face, or PIN."
-            android:textColor="#64748B"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp" />
 
         <com.google.android.material.button.MaterialButton
@@ -177,7 +177,7 @@
             android:textSize="13sp"
             android:textStyle="bold"
             app:cornerRadius="10dp"
-            app:strokeColor="#CBD5E1" />
+            app:strokeColor="@color/divider_color" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCloseDialog"

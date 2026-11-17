@@ -15,4 +15,70 @@
     <color name="text_muted">#94A3B8</color>
     <color name="divider_color">#E2E8F0</color>
     <color name="nav_header_sub">#BBDEFB</color>
+
+    <!-- Calendar Date Bar (Light Mode) -->
+    <color name="calendar_bar_bg">#FEF3C7</color>
+    <color name="calendar_bar_stroke">#FDE68A</color>
+
+    <!-- Dashboard KPI Cards (Light Mode) -->
+    <color name="kpi_collect_bg">#EFF6FF</color>
+    <color name="kpi_collect_stroke">#BFDBFE</color>
+    <color name="kpi_collect_text">#1D4ED8</color>
+
+    <color name="kpi_topay_bg">#FFF7ED</color>
+    <color name="kpi_topay_stroke">#FED7AA</color>
+    <color name="kpi_topay_text">#C2410C</color>
+
+    <color name="kpi_service_bg">#FAF5FF</color>
+    <color name="kpi_service_stroke">#E9D5FF</color>
+    <color name="kpi_service_text">#7E22CE</color>
+
+    <!-- Google Drive Backup Card (Light Mode) -->
+    <color name="drive_card_bg">#F0FDF4</color>
+    <color name="drive_card_stroke">#BBF7D0</color>
+    <color name="drive_card_title">#166534</color>
+    <color name="drive_card_sub">#15803D</color>
+    <color name="drive_btn_bg">#16A34A</color>
+
+    <!-- Reinstall Restore Prompt (Light Mode) -->
+    <color name="restore_card_bg">#EFF6FF</color>
+    <color name="restore_card_stroke">#BFDBFE</color>
+    <color name="restore_card_title">#1E40AF</color>
+    <color name="restore_card_sub">#2563EB</color>
+
+    <!-- Summary Banner (Tabs 1, 2, 3 - Light Mode) -->
+    <color name="summary_collect_bg">#E3F2FD</color>
+    <color name="summary_collect_text">#1565C0</color>
+    <color name="summary_topay_bg">#FFEDD5</color>
+    <color name="summary_topay_text">#C2410C</color>
+    <color name="summary_service_bg">#EDE7F6</color>
+    <color name="summary_service_text">#512DA8</color>
+
+    <!-- Lead Item Badges (Light Mode) -->
+    <color name="badge_overdue_bg">#FEE2E2</color>
+    <color name="badge_overdue_text">#DC2626</color>
+    <color name="badge_today_bg">#FEF3C7</color>
+    <color name="badge_today_text">#D97706</color>
+    <color name="badge_tomorrow_bg">#DBEAFE</color>
+    <color name="badge_tomorrow_text">#2563EB</color>
+    <color name="badge_done_bg">#F1F5F9</color>
+    <color name="badge_done_text">#64748B</color>
+
+    <color name="badge_payment_bg">#E3F2FD</color>
+    <color name="badge_payment_text">#1565C0</color>
+    <color name="badge_to_pay_bg">#FFF3E0</color>
+    <color name="badge_to_pay_text">#C2410C</color>
+    <color name="badge_service_bg">#EDE7F6</color>
+    <color name="badge_service_text">#512DA8</color>
+
+    <!-- Voice Note Row (Light Mode) -->
+    <color name="voice_note_bg">#F0FDF4</color>
+    <color name="voice_note_stroke">#BBF7D0</color>
+    <color name="voice_note_text">#065F46</color>
+
+    <!-- Button Outlined Strokes (Light Mode) -->
+    <color name="btn_stroke_blue">#BFDBFE</color>
+    <color name="btn_stroke_cyan">#BAE6FD</color>
+    <color name="btn_stroke_green">#BBF7D0</color>
+    <color name="btn_stroke_red">#FECACA</color>
 </resources>

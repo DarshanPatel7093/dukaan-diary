@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:layout_marginTop="6dp"
     android:layout_marginBottom="6dp"
-    android:background="@drawable/bg_badge_today"
+    android:background="@drawable/bg_item_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="12dp">
