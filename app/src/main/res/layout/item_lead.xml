@@ -113,6 +113,22 @@
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
+        <!-- Completed Timestamp Badge (Shown when item is marked done) -->
+        <TextView
+            android:id="@+id/tvCompletedDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_voice_note"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:textColor="@color/voice_note_text"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Text Note -->
         <TextView
             android:id="@+id/tvNote"

@@ -45,8 +45,21 @@ data class Lead(
     var done: Boolean = false,
     var assignedEmployeeId: Long = 0,
     var assignedEmployeeName: String = "",
-    var assignedEmployeePhone: String = ""
+    var assignedEmployeePhone: String = "",
+    var completedDateMillis: Long = 0
 )
+
+/** Helper to match search query against all lead fields */
+fun Lead.matchesSearch(query: String): Boolean {
+    if (query.isBlank()) return true
+    val q = query.trim().lowercase(java.util.Locale.ROOT)
+    return name.lowercase(java.util.Locale.ROOT).contains(q) ||
+            phone.replace(" ", "").replace("-", "").contains(q.replace(" ", "").replace("-", "")) ||
+            product.lowercase(java.util.Locale.ROOT).contains(q) ||
+            note.lowercase(java.util.Locale.ROOT).contains(q) ||
+            address.lowercase(java.util.Locale.ROOT).contains(q) ||
+            assignedEmployeeName.lowercase(java.util.Locale.ROOT).contains(q)
+}
 
 /** Midnight (start) of the day containing [millis]. */
 fun startOfDay(millis: Long = System.currentTimeMillis()): Long {
@@ -67,7 +80,7 @@ fun addDays(millis: Long, days: Int): Long {
 }
 
 class Db(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "dukaan.db", null, 2) {
+    SQLiteOpenHelper(context.applicationContext, "dukaan.db", null, 3) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -86,6 +99,7 @@ class Db(context: Context) :
                 assigned_emp_id INTEGER DEFAULT 0,
                 assigned_emp_name TEXT,
                 assigned_emp_phone TEXT,
+                completed_date_millis INTEGER DEFAULT 0,
                 created INTEGER
             )"""
         )
@@ -124,6 +138,11 @@ class Db(context: Context) :
                 )
             } catch (_: Exception) {}
         }
+        if (oldVersion < 3) {
+            try {
+                db.execSQL("ALTER TABLE leads ADD COLUMN completed_date_millis INTEGER DEFAULT 0")
+            } catch (_: Exception) {}
+        }
     }
 
     private fun read(c: Cursor) = Lead(
@@ -140,7 +159,8 @@ class Db(context: Context) :
         done = c.getInt(c.getColumnIndexOrThrow("done")) == 1,
         assignedEmployeeId = try { c.getLong(c.getColumnIndexOrThrow("assigned_emp_id")) } catch (_: Exception) { 0L },
         assignedEmployeeName = try { c.getString(c.getColumnIndexOrThrow("assigned_emp_name")) ?: "" } catch (_: Exception) { "" },
-        assignedEmployeePhone = try { c.getString(c.getColumnIndexOrThrow("assigned_emp_phone")) ?: "" } catch (_: Exception) { "" }
+        assignedEmployeePhone = try { c.getString(c.getColumnIndexOrThrow("assigned_emp_phone")) ?: "" } catch (_: Exception) { "" },
+        completedDateMillis = try { c.getLong(c.getColumnIndexOrThrow("completed_date_millis")) } catch (_: Exception) { 0L }
     )
 
     fun list(type: String, showDone: Boolean): List<Lead> {
@@ -173,6 +193,7 @@ class Db(context: Context) :
             put("assigned_emp_id", l.assignedEmployeeId)
             put("assigned_emp_name", l.assignedEmployeeName)
             put("assigned_emp_phone", l.assignedEmployeePhone)
+            put("completed_date_millis", l.completedDateMillis)
         }
         return if (l.id == 0L) {
             cv.put("created", System.currentTimeMillis())
@@ -183,9 +204,60 @@ class Db(context: Context) :
         }
     }
 
-    fun setDone(id: Long, done: Boolean) {
-        val cv = ContentValues().apply { put("done", if (done) 1 else 0) }
+    fun setDone(id: Long, done: Boolean, completedTime: Long = System.currentTimeMillis()) {
+        val cv = ContentValues().apply {
+            put("done", if (done) 1 else 0)
+            put("completed_date_millis", if (done) completedTime else 0L)
+        }
         writableDatabase.update("leads", cv, "id=?", arrayOf(id.toString()))
+    }
+
+    /**
+     * Lists completed reminders with date range filter and optional type and query.
+     */
+    fun listCompleted(
+        startDateMillis: Long = 0L,
+        endDateMillis: Long = Long.MAX_VALUE,
+        typeFilter: String? = null,
+        searchQuery: String = ""
+    ): List<Lead> {
+        val out = ArrayList<Lead>()
+        val selection = StringBuilder("done = 1")
+        val args = ArrayList<String>()
+
+        if (startDateMillis > 0L) {
+            selection.append(" AND (completed_date_millis >= ? OR (completed_date_millis = 0 AND date_millis >= ?))")
+            args.add(startDateMillis.toString())
+            args.add(startDateMillis.toString())
+        }
+        if (endDateMillis < Long.MAX_VALUE) {
+            selection.append(" AND (completed_date_millis <= ? OR (completed_date_millis = 0 AND date_millis <= ?))")
+            args.add(endDateMillis.toString())
+            args.add(endDateMillis.toString())
+        }
+        if (!typeFilter.isNullOrBlank()) {
+            selection.append(" AND type = ?")
+            args.add(typeFilter)
+        }
+
+        val cursor = readableDatabase.query(
+            "leads",
+            null,
+            selection.toString(),
+            if (args.isEmpty()) null else args.toTypedArray(),
+            null,
+            null,
+            "completed_date_millis DESC, date_millis DESC"
+        )
+        cursor.use { c ->
+            while (c.moveToNext()) {
+                val lead = read(c)
+                if (lead.matchesSearch(searchQuery)) {
+                    out.add(lead)
+                }
+            }
+        }
+        return out
     }
 
     fun setAudio(id: Long, path: String?) {

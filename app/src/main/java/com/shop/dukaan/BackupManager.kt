@@ -105,6 +105,34 @@ object BackupManager {
     }
 
     /**
+     * Directly uploads or saves the backup file to Google Drive.
+     * Targets Google Drive app directly with preselected account and folder.
+     */
+    fun uploadToGoogleDrive(context: Context, backupFile: File, accountName: String = "") {
+        val contentUri: Uri = getShareableUri(context, backupFile)
+        val subject = if (accountName.isNotBlank()) "Dukaan Diary Backup ($accountName)" else "Dukaan Diary Backup"
+
+        val driveIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            setPackage("com.google.android.apps.docs")
+            putExtra(Intent.EXTRA_STREAM, contentUri)
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TITLE, backupFile.name)
+            if (accountName.isNotBlank()) {
+                putExtra("account_name", accountName)
+                putExtra("authAccount", accountName)
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        try {
+            context.startActivity(driveIntent)
+        } catch (_: Exception) {
+            shareBackupFile(context, backupFile, accountName)
+        }
+    }
+
+    /**
      * Shares the backup file via Android's native share sheet (e.g. Save to Drive, WhatsApp).
      */
     fun shareBackupFile(context: Context, backupFile: File, accountName: String = "") {

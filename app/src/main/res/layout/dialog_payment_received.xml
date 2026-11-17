@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Celebration Icon / Badge with Glow -->
+    <FrameLayout
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:background="@drawable/bg_voice_note">
+
+        <TextView
+            android:id="@+id/tvCelebrationEmoji"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="🎉"
+            android:textSize="36sp" />
+    </FrameLayout>
+
+    <!-- Celebration Title -->
+    <TextView
+        android:id="@+id/tvCelebrationTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Payment Received!"
+        android:textColor="@color/text_primary"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvCelebrationSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Successfully recorded into your khata book"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
+
+    <!-- Details Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        app:cardBackgroundColor="@color/bg"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/divider_color"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvCelebrationAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹ 0"
+                android:textColor="@color/green"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvCelebrationParty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Customer Name"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvCelebrationTimestamp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="📅 Date &amp; Time"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- WhatsApp Receipt Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSendReceiptWa"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="18dp"
+        android:backgroundTint="#16A34A"
+        android:text="🟢  SEND WHATSAPP RECEIPT"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        app:cornerRadius="10dp" />
+
+    <!-- SMS Receipt Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSendReceiptSms"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:text="💬  SEND SMS RECEIPT"
+        android:textColor="@color/primary"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        app:cornerRadius="10dp"
+        app:strokeColor="@color/btn_stroke_blue" />
+
+    <!-- Dismiss Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCloseCelebration"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginTop="4dp"
+        android:text="✓  DONE &amp; CLOSE"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
+
+</LinearLayout>

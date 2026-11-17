@@ -13,10 +13,13 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -107,6 +110,11 @@ class MainActivity : AppCompatActivity() {
     // Lock Overlay UI
     private lateinit var layoutLockOverlay: View
     private lateinit var btnUnlockApp: MaterialButton
+
+    // Search Filter across all lists
+    private lateinit var etSearch: EditText
+    private lateinit var btnClearSearch: View
+    private var currentSearchQuery: String = ""
 
     private var currentTabPosition = 0
     private var selectedDateMillis = startOfDay()
@@ -289,10 +297,16 @@ class MainActivity : AppCompatActivity() {
         cardRestorePrompt = findViewById(R.id.cardRestorePrompt)
         btnQuickRestoreDrive = findViewById(R.id.btnQuickRestoreDrive)
 
-        cardDriveBackup.setOnClickListener { startBackupExport() }
-        btnQuickDriveBackup.setOnClickListener { startBackupExport() }
+        cardDriveBackup.setOnClickListener { startDriveBackup() }
+        btnQuickDriveBackup.setOnClickListener { startDriveBackup() }
         btnQuickRestoreDrive.setOnClickListener { confirmRestore() }
         updateLastBackupDisplay()
+
+        // Quick Search Bar
+        etSearch = findViewById(R.id.etSearch)
+        btnClearSearch = findViewById(R.id.btnClearSearch)
+        setupSearch()
+        updateAppHeaderTitles()
 
         scrollMainContent = findViewById(R.id.scrollMainContent)
         tvSummary = findViewById(R.id.tvSummary)
@@ -322,15 +336,17 @@ class MainActivity : AppCompatActivity() {
             onDone = { l ->
                 stopPlayback()
                 val newDone = !l.done
-                db.setDone(l.id, newDone)
+                val completedTime = if (newDone) System.currentTimeMillis() else 0L
+                db.setDone(l.id, newDone, completedTime)
                 if (newDone) {
-                    when (l.type) {
-                        TYPE_PAYMENT -> toast("💰 Payment marked as received!")
-                        TYPE_PAYMENT_PAY -> toast("💳 Payment marked as paid!")
-                        else -> toast("✓ Service visit marked as done!")
+                    val updatedLead = l.copy(done = true, completedDateMillis = completedTime)
+                    if (l.type == TYPE_PAYMENT || l.type == TYPE_PAYMENT_PAY) {
+                        showPaymentCelebrationDialog(updatedLead, isReceived = (l.type == TYPE_PAYMENT))
+                    } else {
+                        toast("✓ Service visit marked as done!")
                     }
                 } else {
-                    toast("Restored to pending")
+                    toast("↩️ Restored to pending")
                 }
                 refresh()
             },
@@ -445,6 +461,10 @@ class MainActivity : AppCompatActivity() {
             tabs.getTabAt(3)?.select()
             drawerLayout.closeDrawer(GravityCompat.START)
         }
+        findViewById<View>(R.id.navCompletedReminders).setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            showCompletedHistoryDialog()
+        }
         findViewById<View>(R.id.navEmployees).setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
             showEmployeesDialog()
@@ -509,6 +529,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         checkAppSecurityOnResume()
+        updateAppHeaderTitles()
         refresh()
     }
 
@@ -622,12 +643,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         val list = db.listForDate(selectedDateMillis, typeFilter, cbShowDone.isChecked)
-        adapter.submit(list)
+        val filteredList = if (currentSearchQuery.isNotBlank()) list.filter { it.matchesSearch(currentSearchQuery) } else list
+        adapter.submit(filteredList)
 
-        tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-        tvEmpty.text = if (list.isEmpty()) {
-            "No reminders scheduled for $subLabel.\nTap + below to add a reminder."
-        } else ""
+        tvEmpty.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
+        tvEmpty.text = when {
+            filteredList.isEmpty() && currentSearchQuery.isNotBlank() ->
+                "No reminders matching \"$currentSearchQuery\""
+            filteredList.isEmpty() ->
+                "No reminders scheduled for $subLabel.\nTap + below to add a reminder."
+            else -> ""
+        }
     }
 
     private fun refreshSingleTab() {
@@ -638,7 +664,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         val list = db.list(type, cbShowDone.isChecked)
-        adapter.submit(list)
+        val filteredList = if (currentSearchQuery.isNotBlank()) list.filter { it.matchesSearch(currentSearchQuery) } else list
+        adapter.submit(filteredList)
 
         val pending = list.filter { !it.done }
         if (currentTabPosition == 1) {
@@ -657,7 +684,13 @@ class MainActivity : AppCompatActivity() {
             tvSummary.setBackgroundColor(ContextCompat.getColor(this, R.color.summary_service_bg))
         }
 
-        tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        tvEmpty.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
+        tvEmpty.text = when {
+            filteredList.isEmpty() && currentSearchQuery.isNotBlank() ->
+                "No entries matching \"$currentSearchQuery\""
+            filteredList.isEmpty() -> "No records found"
+            else -> ""
+        }
         tvEmpty.text = when {
             list.isNotEmpty() -> ""
             currentTabPosition == 1 -> "No customer payment records yet.\nTap + to add an udhar."
@@ -721,14 +754,41 @@ class MainActivity : AppCompatActivity() {
         showMessageChooser(empPhone, msg, l.assignedEmployeeName.ifBlank { "Technician" })
     }
 
-    private fun showMessageChooser(phone: String, text: String, recipientName: String = "") {
+    private fun openWhatsApp(phone: String, text: String) {
         val cleanPhone = phone.replace("+", "").replace(" ", "").replace("-", "")
         if (cleanPhone.isEmpty()) {
             toast("No valid phone number")
             return
         }
         val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
+        try {
+            val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=" + Uri.encode(text))
+            }
+            startActivity(waIntent)
+        } catch (_: Exception) {
+            toast("WhatsApp is not installed on this device")
+        }
+    }
 
+    private fun openSms(phone: String, text: String) {
+        val cleanPhone = phone.replace("+", "").replace(" ", "").replace("-", "")
+        if (cleanPhone.isEmpty()) {
+            toast("No valid phone number")
+            return
+        }
+        try {
+            val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:$cleanPhone")
+                putExtra("sms_body", text)
+            }
+            startActivity(smsIntent)
+        } catch (_: Exception) {
+            toast("Could not open SMS app")
+        }
+    }
+
+    private fun showMessageChooser(phone: String, text: String, recipientName: String = "") {
         val options = arrayOf(
             "🟢 WhatsApp Message",
             "💬 Text Message (SMS)"
@@ -740,31 +800,91 @@ class MainActivity : AppCompatActivity() {
             .setTitle(title)
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> {
-                        try {
-                            val waIntent = Intent(Intent.ACTION_VIEW).apply {
-                                data = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=" + Uri.encode(text))
-                            }
-                            startActivity(waIntent)
-                        } catch (_: Exception) {
-                            toast("WhatsApp is not installed on this device")
-                        }
-                    }
-                    1 -> {
-                        try {
-                            val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("smsto:$cleanPhone")
-                                putExtra("sms_body", text)
-                            }
-                            startActivity(smsIntent)
-                        } catch (_: Exception) {
-                            toast("Could not open SMS app")
-                        }
-                    }
+                    0 -> openWhatsApp(phone, text)
+                    1 -> openSms(phone, text)
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun showPaymentCelebrationDialog(l: Lead, isReceived: Boolean) {
+        val v = LayoutInflater.from(this).inflate(R.layout.dialog_payment_received, null)
+        val tvEmoji: TextView = v.findViewById(R.id.tvCelebrationEmoji)
+        val tvTitle: TextView = v.findViewById(R.id.tvCelebrationTitle)
+        val tvSubtitle: TextView = v.findViewById(R.id.tvCelebrationSubtitle)
+        val tvAmount: TextView = v.findViewById(R.id.tvCelebrationAmount)
+        val tvParty: TextView = v.findViewById(R.id.tvCelebrationParty)
+        val tvTimestamp: TextView = v.findViewById(R.id.tvCelebrationTimestamp)
+        val btnSendWa: MaterialButton = v.findViewById(R.id.btnSendReceiptWa)
+        val btnSendSms: MaterialButton = v.findViewById(R.id.btnSendReceiptSms)
+        val btnClose: MaterialButton = v.findViewById(R.id.btnCloseCelebration)
+
+        val completedTime = if (l.completedDateMillis > 0) l.completedDateMillis else System.currentTimeMillis()
+        val timeStr = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(completedTime))
+
+        if (isReceived) {
+            tvEmoji.text = "🎉"
+            tvTitle.text = "Payment Received! 🎉"
+            tvSubtitle.text = "Successfully recorded into your khata book"
+            tvAmount.text = "₹ " + moneyFmt.format(l.amount)
+            tvAmount.setTextColor(ContextCompat.getColor(this, R.color.green))
+            tvParty.text = "👤 " + l.name
+            btnSendWa.text = "🟢  SEND WHATSAPP RECEIPT"
+            btnSendSms.text = "💬  SEND SMS RECEIPT"
+        } else {
+            tvEmoji.text = "💳"
+            tvTitle.text = "Payment Completed! 💳"
+            tvSubtitle.text = "Supplier / Cheque payment recorded"
+            tvAmount.text = "₹ " + moneyFmt.format(l.amount)
+            tvAmount.setTextColor(ContextCompat.getColor(this, R.color.orange))
+            tvParty.text = "🏢 " + l.name
+            btnSendWa.text = "🟢  SEND WHATSAPP CONFIRMATION"
+            btnSendSms.text = "💬  SEND SMS CONFIRMATION"
+        }
+
+        tvTimestamp.text = "📅 Recorded on: $timeStr"
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(v)
+            .setCancelable(true)
+            .create()
+
+        btnSendWa.setOnClickListener {
+            val phone = l.phone.trim()
+            if (phone.isBlank()) {
+                toast("No phone number saved for ${l.name}")
+                return@setOnClickListener
+            }
+            val msg = if (isReceived) {
+                MessageHelper.formatPaymentReceivedReceipt(this, l.name, l.amount, l.product, timeStr)
+            } else {
+                MessageHelper.formatPaymentPaidConfirmation(this, l.name, l.amount, l.product, timeStr)
+            }
+            openWhatsApp(phone, msg)
+            dialog.dismiss()
+        }
+
+        btnSendSms.setOnClickListener {
+            val phone = l.phone.trim()
+            if (phone.isBlank()) {
+                toast("No phone number saved for ${l.name}")
+                return@setOnClickListener
+            }
+            val msg = if (isReceived) {
+                MessageHelper.formatPaymentReceivedReceipt(this, l.name, l.amount, l.product, timeStr)
+            } else {
+                MessageHelper.formatPaymentPaidConfirmation(this, l.name, l.amount, l.product, timeStr)
+            }
+            openSms(phone, msg)
+            dialog.dismiss()
+        }
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     // ==================== AUDIO PLAYBACK ====================
@@ -814,13 +934,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun confirmDelete(l: Lead) {
+    private fun confirmDelete(l: Lead, onDeleted: (() -> Unit)? = null) {
         AlertDialog.Builder(this)
             .setTitle("Delete this entry?")
             .setMessage("Name: ${l.name}\nThis cannot be undone.")
             .setPositiveButton("YES, DELETE") { _, _ ->
                 db.deleteWithAudio(l)
                 refresh()
+                onDeleted?.invoke()
             }
             .setNegativeButton("NO", null)
             .show()
@@ -933,6 +1054,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettingsDialog() {
         val v = LayoutInflater.from(this).inflate(R.layout.dialog_settings, null)
+        val etSettingsShopName: TextInputEditText = v.findViewById(R.id.etSettingsShopName)
+        val etSettingsShopPhone: TextInputEditText = v.findViewById(R.id.etSettingsShopPhone)
+
         val rgTheme: RadioGroup = v.findViewById(R.id.rgThemeMode)
         val rbSystem: RadioButton = v.findViewById(R.id.rbThemeSystem)
         val rbLight: RadioButton = v.findViewById(R.id.rbThemeLight)
@@ -947,6 +1071,13 @@ class MainActivity : AppCompatActivity() {
         val btnSettingsSelectAccount: MaterialButton = v.findViewById(R.id.btnSettingsSelectAccount)
         val btnTestNotif: MaterialButton = v.findViewById(R.id.btnTestNotification)
         val btnSaveSettings: MaterialButton = v.findViewById(R.id.btnSaveSettings)
+
+        // Load Shop Profile
+        val currentShopName = MessageHelper.getShopName(this)
+        if (currentShopName != "Our Shop") {
+            etSettingsShopName.setText(currentShopName)
+        }
+        etSettingsShopPhone.setText(MessageHelper.getShopPhone(this))
 
         val sp = getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
         when (sp.getString(KEY_THEME_MODE, "system")) {
@@ -991,6 +1122,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSaveSettings.setOnClickListener {
+            // Save Shop Profile
+            val newShopName = etSettingsShopName.text?.toString()?.trim() ?: ""
+            val newShopPhone = etSettingsShopPhone.text?.toString()?.trim() ?: ""
+            MessageHelper.setShopName(this, newShopName)
+            MessageHelper.setShopPhone(this, newShopPhone)
+            updateAppHeaderTitles()
+
             val selectedTheme = when {
                 rbLight.isChecked -> "light"
                 rbDark.isChecked -> "dark"
@@ -1078,7 +1216,7 @@ class MainActivity : AppCompatActivity() {
 
         btnSaveBackup.setOnClickListener {
             dialog.dismiss()
-            startBackupExport()
+            startDriveBackup()
         }
 
         btnShareBackup.setOnClickListener {
@@ -1101,6 +1239,276 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun setupSearch() {
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                currentSearchQuery = s?.toString()?.trim() ?: ""
+                btnClearSearch.visibility = if (currentSearchQuery.isNotEmpty()) View.VISIBLE else View.GONE
+                refresh()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        btnClearSearch.setOnClickListener {
+            etSearch.setText("")
+        }
+    }
+
+    private fun updateAppHeaderTitles() {
+        val shopName = MessageHelper.getShopName(this)
+        val displayTitle = if (shopName != "Our Shop" && shopName.isNotBlank()) shopName else "Dukaan Diary"
+        findViewById<TextView?>(R.id.tvHeaderAppTitle)?.text = displayTitle
+        findViewById<TextView?>(R.id.tvDrawerShopTitle)?.text = displayTitle
+    }
+
+    private fun startDriveBackup(chosenAccount: String = "") {
+        val account = if (chosenAccount.isNotBlank()) chosenAccount else getGoogleDriveAccount()
+        if (account.isBlank()) {
+            promptChooseGoogleAccount { selectedAccount ->
+                startDriveBackup(selectedAccount)
+            }
+            return
+        }
+
+        try {
+            val file = BackupManager.createBackupArchive(this)
+            BackupManager.uploadToGoogleDrive(this, file, account)
+            BackupManager.recordBackupSuccess(this, file.length())
+            updateLastBackupDisplay()
+            toast("☁️ Opening Google Drive to save backup...")
+        } catch (e: Exception) {
+            toast("Failed to create backup: ${e.message}")
+        }
+    }
+
+    private fun showCompletedHistoryDialog() {
+        val v = LayoutInflater.from(this).inflate(R.layout.dialog_completed_history, null)
+        val btnClose: ImageView = v.findViewById(R.id.btnCloseHistory)
+        val etHistorySearch: EditText = v.findViewById(R.id.etHistorySearch)
+        val btnClearSearch: ImageView = v.findViewById(R.id.btnClearHistorySearch)
+
+        val chipGroupDateRange: ChipGroup = v.findViewById(R.id.chipGroupHistoryDateRange)
+        val chipHistoryAllTime: Chip = v.findViewById(R.id.chipHistoryAllTime)
+        val chipHistoryToday: Chip = v.findViewById(R.id.chipHistoryToday)
+        val chipHistoryThisWeek: Chip = v.findViewById(R.id.chipHistoryThisWeek)
+        val chipHistoryThisMonth: Chip = v.findViewById(R.id.chipHistoryThisMonth)
+        val chipHistoryCustom: Chip = v.findViewById(R.id.chipHistoryCustom)
+
+        val layoutCustomRange: LinearLayout = v.findViewById(R.id.layoutCustomDateRange)
+        val btnStartDate: MaterialButton = v.findViewById(R.id.btnHistoryStartDate)
+        val btnEndDate: MaterialButton = v.findViewById(R.id.btnHistoryEndDate)
+
+        val chipGroupType: ChipGroup = v.findViewById(R.id.chipGroupHistoryType)
+        val chipTypeAll: Chip = v.findViewById(R.id.chipHistoryTypeAll)
+        val chipTypeCollect: Chip = v.findViewById(R.id.chipHistoryTypeCollect)
+        val chipTypeToPay: Chip = v.findViewById(R.id.chipHistoryTypeToPay)
+        val chipTypeService: Chip = v.findViewById(R.id.chipHistoryTypeService)
+
+        val tvTotalReceived: TextView = v.findViewById(R.id.tvHistoryTotalReceived)
+        val tvTotalPaid: TextView = v.findViewById(R.id.tvHistoryTotalPaid)
+        val tvTotalServices: TextView = v.findViewById(R.id.tvHistoryTotalServices)
+        val rvCompleted: RecyclerView = v.findViewById(R.id.rvCompletedHistory)
+        val tvEmptyHistory: TextView = v.findViewById(R.id.tvEmptyHistory)
+
+        var dateFilterMode = "all" // all, today, week, month, custom
+        var customStartMillis = startOfDay()
+        var customEndMillis = startOfDay() + 86_400_000L - 1
+        var historySearchQuery = ""
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(v)
+            .create()
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        fun updateCustomDateLabels() {
+            btnStartDate.text = "From: " + shortDateFmt.format(Date(customStartMillis))
+            btnEndDate.text = "To: " + shortDateFmt.format(Date(customEndMillis))
+        }
+        updateCustomDateLabels()
+
+        btnStartDate.setOnClickListener {
+            val cal = Calendar.getInstance().apply { timeInMillis = customStartMillis }
+            DatePickerDialog(this, { _, y, m, d ->
+                val c = Calendar.getInstance().apply {
+                    set(y, m, d, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                customStartMillis = c.timeInMillis
+                updateCustomDateLabels()
+                chipHistoryCustom.isChecked = true
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        btnEndDate.setOnClickListener {
+            val cal = Calendar.getInstance().apply { timeInMillis = customEndMillis }
+            DatePickerDialog(this, { _, y, m, d ->
+                val c = Calendar.getInstance().apply {
+                    set(y, m, d, 23, 59, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                customEndMillis = c.timeInMillis
+                updateCustomDateLabels()
+                chipHistoryCustom.isChecked = true
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        fun getDateRangeBounds(): Pair<Long, Long> {
+            return when (dateFilterMode) {
+                "today" -> Pair(startOfDay(), startOfDay() + 86_400_000L - 1)
+                "week" -> {
+                    val c = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    Pair(c.timeInMillis, Long.MAX_VALUE)
+                }
+                "month" -> {
+                    val c = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    Pair(c.timeInMillis, Long.MAX_VALUE)
+                }
+                "custom" -> Pair(customStartMillis, customEndMillis)
+                else -> Pair(0L, Long.MAX_VALUE)
+            }
+        }
+
+        fun getSelectedType(): Int? {
+            return when {
+                chipTypeCollect.isChecked -> TYPE_PAYMENT
+                chipTypeToPay.isChecked -> TYPE_PAYMENT_PAY
+                chipTypeService.isChecked -> TYPE_SERVICE
+                else -> null
+            }
+        }
+
+        lateinit var historyAdapter: LeadAdapter
+
+        fun reloadHistory() {
+            val (startMillis, endMillis) = getDateRangeBounds()
+            val typeFilter = getSelectedType()
+            val list = db.listCompleted(startMillis, endMillis, typeFilter, historySearchQuery)
+            historyAdapter.submit(list)
+
+            val totalReceived = list.filter { it.type == TYPE_PAYMENT }.sumOf { it.amount }
+            val totalPaid = list.filter { it.type == TYPE_PAYMENT_PAY }.sumOf { it.amount }
+            val totalServices = list.count { it.type == TYPE_SERVICE }
+
+            tvTotalReceived.text = "₹ " + moneyFmt.format(totalReceived)
+            tvTotalPaid.text = "₹ " + moneyFmt.format(totalPaid)
+            tvTotalServices.text = "$totalServices done"
+
+            tvEmptyHistory.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+            tvEmptyHistory.text = if (list.isEmpty()) {
+                if (historySearchQuery.isNotBlank()) "No completed entries matching \"$historySearchQuery\""
+                else "No completed reminders found for this period."
+            } else ""
+        }
+
+        historyAdapter = LeadAdapter(
+            onCall = { l ->
+                if (l.phone.isNotBlank()) {
+                    startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + l.phone)))
+                } else {
+                    toast("No phone number available")
+                }
+            },
+            onMessage = { l ->
+                val completedTimeStr = if (l.completedDateMillis > 0) {
+                    SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(l.completedDateMillis))
+                } else {
+                    shortDateFmt.format(Date(l.dateMillis))
+                }
+                val msg = when (l.type) {
+                    TYPE_PAYMENT -> MessageHelper.formatPaymentReceivedReceipt(this, l.name, l.amount, l.product, completedTimeStr)
+                    TYPE_PAYMENT_PAY -> MessageHelper.formatPaymentPaidConfirmation(this, l.name, l.amount, l.product, completedTimeStr)
+                    else -> MessageHelper.formatReminderMessage(this, l)
+                }
+                showMessageChooser(l.phone, msg, l.name)
+            },
+            onDone = { l ->
+                // UNDO completion
+                db.setDone(l.id, false, 0L)
+                toast("↩️ Restored to active reminders")
+                reloadHistory()
+                refresh()
+            },
+            onDelete = { l ->
+                confirmDelete(l) {
+                    reloadHistory()
+                }
+            },
+            onOpen = { l ->
+                openEdit(l.id, l.type)
+            },
+            onPlayVoice = { l ->
+                handlePlayVoice(l)
+            }
+        )
+
+        rvCompleted.layoutManager = LinearLayoutManager(this)
+        rvCompleted.adapter = historyAdapter
+
+        chipGroupDateRange.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.chipHistoryToday -> {
+                    dateFilterMode = "today"
+                    layoutCustomRange.visibility = View.GONE
+                }
+                R.id.chipHistoryThisWeek -> {
+                    dateFilterMode = "week"
+                    layoutCustomRange.visibility = View.GONE
+                }
+                R.id.chipHistoryThisMonth -> {
+                    dateFilterMode = "month"
+                    layoutCustomRange.visibility = View.GONE
+                }
+                R.id.chipHistoryCustom -> {
+                    dateFilterMode = "custom"
+                    layoutCustomRange.visibility = View.VISIBLE
+                }
+                else -> {
+                    dateFilterMode = "all"
+                    layoutCustomRange.visibility = View.GONE
+                }
+            }
+            reloadHistory()
+        }
+
+        chipGroupType.setOnCheckedChangeListener { _, _ ->
+            reloadHistory()
+        }
+
+        etHistorySearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                historySearchQuery = s?.toString()?.trim() ?: ""
+                btnClearSearch.visibility = if (historySearchQuery.isNotEmpty()) View.VISIBLE else View.GONE
+                reloadHistory()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        btnClearSearch.setOnClickListener {
+            etHistorySearch.setText("")
+        }
+
+        reloadHistory()
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
 
     private fun startBackupExport() {

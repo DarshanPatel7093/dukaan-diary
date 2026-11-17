@@ -49,6 +49,7 @@ class LeadAdapter(
         val extra: TextView = v.findViewById(R.id.tvExtra)
         val assignedEmp: TextView = v.findViewById(R.id.tvAssignedEmployee)
         val date: TextView = v.findViewById(R.id.tvDate)
+        val completedDate: TextView = v.findViewById(R.id.tvCompletedDate)
         val note: TextView = v.findViewById(R.id.tvNote)
         val layoutVoice: View = v.findViewById(R.id.layoutVoice)
         val btnPlayVoice: MaterialButton = v.findViewById(R.id.btnPlayVoice)
@@ -139,6 +140,19 @@ class LeadAdapter(
         }
         h.date.text = datePrefix + dateFmt.format(Date(l.dateMillis))
 
+        // Completed Timestamp
+        if (l.done && l.completedDateMillis > 0) {
+            h.completedDate.visibility = View.VISIBLE
+            val completedTimeStr = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(l.completedDateMillis))
+            h.completedDate.text = when {
+                isToCollect -> "✓ Payment Received on: $completedTimeStr"
+                isToPay -> "✓ Payment Paid on: $completedTimeStr"
+                else -> "✓ Service Completed on: $completedTimeStr"
+            }
+        } else {
+            h.completedDate.visibility = View.GONE
+        }
+
         // Note
         if (l.note.isNotBlank()) {
             h.note.text = "📝 " + l.note
@@ -188,20 +202,20 @@ class LeadAdapter(
         // Done button text (Received / Paid / Done)
         if (l.done) {
             h.btnDone.text = "UNDO"
-            h.btnDone.setTextColor(Color.parseColor("#475569"))
+            h.btnDone.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
         } else {
             when {
                 isToCollect -> {
                     h.btnDone.text = "💰 RECEIVED"
-                    h.btnDone.setTextColor(Color.parseColor("#16A34A"))
+                    h.btnDone.setTextColor(ContextCompat.getColor(ctx, R.color.green))
                 }
                 isToPay -> {
                     h.btnDone.text = "💳 PAID"
-                    h.btnDone.setTextColor(Color.parseColor("#C2410C"))
+                    h.btnDone.setTextColor(ContextCompat.getColor(ctx, R.color.orange))
                 }
                 else -> {
                     h.btnDone.text = "✓ DONE"
-                    h.btnDone.setTextColor(Color.parseColor("#16A34A"))
+                    h.btnDone.setTextColor(ContextCompat.getColor(ctx, R.color.green))
                 }
             }
         }
