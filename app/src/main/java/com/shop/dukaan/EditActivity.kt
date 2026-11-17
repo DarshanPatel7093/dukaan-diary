@@ -9,9 +9,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.view.LayoutInflater
 import android.view.View
@@ -118,14 +121,22 @@ class EditActivity : AppCompatActivity() {
                     toast("No speech detected. Please speak clearly.")
                 }
             } else if (result.resultCode != Activity.RESULT_CANCELED) {
-                toast("Speech recognition failed. If offline, tap Language > Offline Voice Settings to download language.")
+                if (!isNetworkAvailable()) {
+                    showNoInternetDialog()
+                } else {
+                    toast("Speech recognition could not detect audio. Please tap 🎙️ and speak clearly.")
+                }
             }
         }
 
     private val speechMicPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                pendingSpeechTarget?.let { startSpeechToText(it, pendingSpeechPrompt) }
+                if (!isNetworkAvailable()) {
+                    showNoInternetDialog()
+                } else {
+                    pendingSpeechTarget?.let { startSpeechToText(it, pendingSpeechPrompt) }
+                }
             } else {
                 toast("Microphone permission is needed for speech-to-text")
             }
@@ -641,9 +652,56 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    private fun isNetworkAvailable(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = cm.activeNetwork ?: return false
+            val capabilities = cm.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val networkInfo = cm.activeNetworkInfo ?: return false
+            @Suppress("DEPRECATION")
+            return networkInfo.isConnected
+        }
+    }
+
+    private fun showNoInternetDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("📶 Internet Connection Required")
+            .setMessage("Your Internet connection is currently OFF.\n\nPlease turn on Wi-Fi or Mobile Data to use voice recording for typing.")
+            .setPositiveButton("📶 TURN ON INTERNET") { _, _ ->
+                try {
+                    val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    try {
+                        val intent = Intent(Settings.ACTION_WIFI_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        toast("Please turn on Wi-Fi or Mobile Data in your phone settings")
+                    }
+                }
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
     private fun requestSpeech(target: TextInputEditText, prompt: String) {
         if (recorder != null) stopRecording()
         stopPlayback()
+
+        // 1. Check network connection first
+        if (!isNetworkAvailable()) {
+            showNoInternetDialog()
+            return
+        }
+
+        // 2. Check mic permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
@@ -743,9 +801,6 @@ class EditActivity : AppCompatActivity() {
             )
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-            // Enable offline recognition on device
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra("android.speech.extra.PREFER_OFFLINE", true)
             val langDisplay = if (langCode == "auto") "Auto: ${deviceLocale.displayLanguage}" else getSavedLanguageLabel()
             putExtra(RecognizerIntent.EXTRA_PROMPT, "$prompt [$langDisplay]")
         }
