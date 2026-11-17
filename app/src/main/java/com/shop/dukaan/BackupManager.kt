@@ -233,5 +233,16 @@ object BackupManager {
             tempRestoreDir.deleteRecursively()
         }
     }
+
+    /**
+     * Records successful backup timestamp into preferences.
+     */
+    fun recordBackupSuccess(context: Context, bytes: Long = 0L) {
+        val timeStr = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date())
+        context.getSharedPreferences("dukaan_security", Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_backup_time", timeStr)
+            .apply()
+    }
 }
 

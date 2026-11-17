@@ -1386,7 +1386,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun getSelectedType(): Int? {
+        fun getSelectedType(): String? {
             return when {
                 chipTypeCollect.isChecked -> TYPE_PAYMENT
                 chipTypeToPay.isChecked -> TYPE_PAYMENT_PAY
